@@ -19,6 +19,7 @@
   "homepage": "https://github.com/Capx-Fi/Capx-App-Protocol#readme",
   "dependencies": {
     "@openzeppelin/contracts": "^4.8.2",
-    "@openzeppelin/contracts-upgradeable": "^4.8.2"
+    "@openzeppelin/contracts-upgradeable": "^4.8.2",
+    "abi-decoder": "^2.4.0"
   }
 }
