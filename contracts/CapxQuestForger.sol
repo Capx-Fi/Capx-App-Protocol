@@ -11,6 +11,14 @@ import {CapxQuest as CapxQuestContract} from "./CapxQuest.sol";
 import {CapxIOUQuest} from "./CapxIOUQuest.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
+interface ICapxIOUQuest {
+     function claim(
+        bytes32 _messageHash,
+        bytes memory _signature,
+        address _sender
+    ) external;
+}
+
 contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, ICapxQuestForger {
     using SafeERC20 for IERC20;
     bytes32 public constant IOU = keccak256(abi.encodePacked("iou"));
@@ -28,6 +36,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     mapping(address => bool) public isCapxQuest;
 
     mapping(string => CapxQuest) public capxQuests;
+    mapping(string => address) public capxQuestsAddress;
 
     uint16 public questFee;
 
@@ -55,7 +64,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
         claimSignerAddress = _claimSignerAddress;
         feeReceiver = _feeReceiver;
-        questFee = 2_000;
+        questFee = 200;
         capxIOUQuestAddress = _capxIOUQuestAddress;
     }
 
@@ -78,6 +87,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
             // TODO: Check for Reward Token in Whitelist.
             address newCapxQuest = Clones.clone(capxIOUQuestAddress);
             isCapxQuest[newCapxQuest] = true;
+            capxQuestsAddress[_questId] = newCapxQuest;
 
             // Transfer the tokens.
             uint256 requiredTokens = ((10_000 + questFee) * (_maxParticipants * _rewardAmountInWei)) / 10_000;
@@ -137,6 +147,20 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function getClaimedNumber(string memory _questId) external view returns(uint) {
         return capxQuests[_questId].participantCount;
+    }
+
+    function claim(
+        bytes32 _messageHash,
+        bytes memory _signature,
+        string memory _questId
+    ) external {
+        address capxQuest = capxQuestsAddress[_questId];
+        require(address(capxQuest) != address(0) && isCapxQuest[capxQuest], "Invalid Capx Quest ID");
+        ICapxIOUQuest(capxQuest).claim(
+            _messageHash,
+            _signature,
+            msg.sender
+        );
     }
 
     function emitClaim(

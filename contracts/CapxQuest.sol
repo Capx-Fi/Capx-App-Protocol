@@ -99,17 +99,19 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
 
     function claim(
         bytes32 _messageHash,
-        bytes memory _signature
+        bytes memory _signature,
+        address _sender
     ) external virtual nonReentrant isQuestActive whenNotPaused {
+        require(msg.sender == address(capxQuestForger),"NOT Authorized to call.");
         if (participantCount + 1 > maxParticipants) revert OverMaxParticipants();
-        if (claimedUsers[msg.sender] == true) revert AlreadyClaimed();
+        if (claimedUsers[_sender] == true) revert AlreadyClaimed();
         if (!started) revert QuestNotStarted();
         if (block.timestamp < startTime) revert QuestNotStarted();
         if (block.timestamp > endTime) revert QuestEnded();
-        if (keccak256(abi.encodePacked(msg.sender, questId)) != _messageHash) revert InvalidMessageHash();
+        if (keccak256(abi.encodePacked(_sender, questId)) != _messageHash) revert InvalidMessageHash();
         if (recoverSigner(_messageHash, _signature) != capxQuestForger.claimSignerAddress()) revert InvalidSigner();
 
-        claimedUsers[msg.sender] = true;
+        claimedUsers[_sender] = true;
         ++participantCount;
 
         uint256 redeemableTokens = _calculateRedeemableTokens();
@@ -118,7 +120,7 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
 
         claimedTokenAmt += rewards;
 
-        capxQuestForger.emitClaim(address(this), questId, msg.sender, rewardToken, rewards);
+        capxQuestForger.emitClaim(address(this), questId, _sender, rewardToken, rewards);
     }
 
     function _calculateRedeemableTokens() internal virtual returns (uint256) {
