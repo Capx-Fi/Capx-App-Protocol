@@ -18,7 +18,7 @@ async function get(
             }
         );
         
-        decoder.addABI([{"inputs":[{"internalType":"bytes32","name":"_messageHash","type":"bytes32"},{"internalType":"bytes","name":"_signature","type":"bytes"}],"name":"claim","outputs":[],"stateMutability":"nonpayable","type":"function"}]);
+        decoder.addABI([{"inputs":[{"internalType":"bytes32","name":"_messageHash","type":"bytes32"},{"internalType":"bytes","name":"_signature","type":"bytes"},{"internalType":"string","name":"_questId","type":"string"}],"name":"claim","outputs":[],"stateMutability":"nonpayable","type":"function"}]);
         const decodedData = decoder.decodeMethod(txData?.data?.result?.input);
         if (decodedData?.name) {
             const params = decodedData.params;

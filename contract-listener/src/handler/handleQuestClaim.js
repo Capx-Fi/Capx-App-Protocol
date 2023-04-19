@@ -9,7 +9,7 @@ async function handle(env, network, event) {
         // event = {
         //     address: '0xDB336B6d6705736C68D73390437766F7c3beadF5',
         //     blockNumber: 33351964,
-        //     transactionHash: '0xe4c0af22173f19ac62bb896307acfa675b7552212ef414675dd00aa36908bb63',
+        //     transactionHash: '0xdf78ba4fb62517bb020f64c2249d1dfa6bddeb2ee414d6fe9a05ee2513219a9e',
         //     transactionIndex: 10,
         //     blockHash: '0x13cf11e288900b87faf5b87dbededc84e03a28e511701f65e910c7eda8e18eb2',
         //     logIndex: 15,
@@ -21,11 +21,11 @@ async function handle(env, network, event) {
         //     '2': '0xdea1d0816d88B72F522991B5AB955ca808Dde18D',
         //     '3': '0xc62E90d28A48479f1b4414f79F557a784E6486f2',
         //     '4': '100000000000000000',
-        //     questAddress: '0x630216e20e31B4ecf0ccb6C57B8980C0dd02a603',
-        //     questId: 'a950643f7e9fabed8a9be1f3befcbb3a_1',
-        //     claimer: '0xdea1d0816d88B72F522991B5AB955ca808Dde18D',
-        //     rewardToken: '0xc62E90d28A48479f1b4414f79F557a784E6486f2',
-        //     rewardAmount: '100000000000000000'
+        //     questAddress: '0x689efD9E55ba3B16bA4c24533F1a987D9dEd68DF',
+        //     questId: '1e9463eaeeb4137ecf62cbb6567e1ed8_0',
+        //     claimer: '0x8c6404Ce2dAe0Bea0654c5A7D8A6112C06eD6A60',
+        //     rewardToken: '0xB95140C85F8fF72e38E1CE4eAfA4F445ACbCcB6E',
+        //     rewardAmount: '1000000000000000000'
         //     },
         //     event: 'CapxQuestRewardClaimed',
         //     signature: '0x1f316933ef3d09c0e19c6de2b7017efaab425806453d954a28f021c550029e35',
@@ -68,7 +68,7 @@ async function handle(env, network, event) {
                 txTimestamp: txTimestamp,
                 txInputs: txInputs,
                 txRewardToken: txRewardToken,
-                txRewardAmt: txRewardAmt
+                txTokenAmt: txRewardAmt
             },
             questId: questId,
             questAddress: questAddress,
@@ -82,6 +82,6 @@ async function handle(env, network, event) {
     }
 }
 
-handle("TESTNET", "POLYGON", "");
+// handle("TESTNET", "POLYGON", "");
 
 module.exports.handle = handle;
