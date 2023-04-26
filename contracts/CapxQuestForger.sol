@@ -64,7 +64,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
         claimSignerAddress = _claimSignerAddress;
         feeReceiver = _feeReceiver;
-        questFee = 200;
+        questFee = 0;
         capxIOUQuestAddress = _capxIOUQuestAddress;
     }
 
@@ -85,13 +85,16 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         if (keccak256(abi.encodePacked(_questRewardType)) == IOU) {
             // Reward Type IOU.
             // TODO: Check for Reward Token in Whitelist.
-            address newCapxQuest = Clones.clone(capxIOUQuestAddress);
+            bytes32 salt = keccak256(abi.encodePacked(_questId));
+            address newCapxQuest = Clones.cloneDeterministic(capxIOUQuestAddress,salt);
             isCapxQuest[newCapxQuest] = true;
             capxQuestsAddress[_questId] = newCapxQuest;
 
-            // Transfer the tokens.
-            uint256 requiredTokens = ((10_000 + questFee) * (_maxParticipants * _rewardAmountInWei)) / 10_000;
-            IERC20(_rewardToken).safeTransferFrom(msg.sender, newCapxQuest, requiredTokens);
+            {
+                // Transfer the tokens.
+                uint256 requiredTokens = ((10_000 + questFee) * (_maxParticipants * _rewardAmountInWei)) / 10_000;
+                IERC20(_rewardToken).safeTransferFrom(msg.sender, newCapxQuest, requiredTokens);
+            }
 
             emit CapxQuestCreated(
                 msg.sender,
@@ -147,6 +150,11 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function getClaimedNumber(string memory _questId) external view returns(uint) {
         return capxQuests[_questId].participantCount;
+    }
+
+    function predictQuestAddress(string memory _questId) external view returns(address) {
+        bytes32 salt = keccak256(abi.encodePacked(_questId));
+        return Clones.predictDeterministicAddress(capxIOUQuestAddress,salt);
     }
 
     function claim(

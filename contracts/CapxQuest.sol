@@ -116,7 +116,7 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
 
         uint256 redeemableTokens = _calculateRedeemableTokens();
         uint256 rewards = _calculateRewards(redeemableTokens);
-        _transferRewards(rewards);
+        _transferRewards(_sender, rewards);
 
         claimedTokenAmt += rewards;
 
@@ -131,7 +131,7 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
         revert ChildImplementationMissing();
     }
 
-    function _transferRewards(uint256 _rewardAmount) internal virtual {
+    function _transferRewards(address _claimer, uint256 _rewardAmount) internal virtual {
         revert ChildImplementationMissing();
     }
 

@@ -37,6 +37,7 @@ contract CapxIOUQuest is CapxQuest {
         questFee = _questFee;
         hasWithdrawn = false;
         feeReceiver = _feeReceiver;
+        started = true;
     }
 
 
@@ -64,8 +65,9 @@ contract CapxIOUQuest is CapxQuest {
         return 1;
     }
 
-    function _transferRewards(uint256 _amount) internal override {
-        IERC20(rewardToken).safeTransfer(msg.sender, _amount);
+    function _transferRewards(address _claimer, uint256 _amount) internal override {
+        require(IERC20(rewardToken).approve(_claimer, _amount));
+        IERC20(rewardToken).safeTransfer(_claimer, _amount);
     }
 
     function _calculateRewards(uint256 _redeemableTokens) internal view override returns (uint256) {
