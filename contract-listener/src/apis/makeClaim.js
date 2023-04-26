@@ -36,7 +36,7 @@ async function claim(
                         },
                     }
                 );
-                console.log("Claim Response", claimResponse);
+                console.log("Claim Response", claimResponse.data);
             } catch (err) {
                 console.log(`Axios API Claim Error: ${CLAIM.URL}`, err.message);
             }

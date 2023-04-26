@@ -51,15 +51,15 @@ async function handle(env, network, event) {
         const RPC_URLS = ALCHEMY_ENDPOINTS[`${env}`][`${network}`][`HTTPS`];
         const RPC_URL = RPC_URLS[Math.floor(Math.random() * RPC_URLS.length)];
 
-        txInputs = await getTxByHash.get(txHash, RPC_URL, txInputs);
-        if (!txInputs?.hash) {
-            const try2Url = RPC_URLS[Math.floor(Math.random() * RPC_URLS.length)];
-            txInputs = await getTxByHash.get(txHash, try2Url, txInputs);
-            if (!txInputs?.hash) {
-                const try3Url = RPC_URLS[Math.floor(Math.random() * RPC_URLS.length)];
-                txInputs = await getTxByHash.get(txHash, try3Url, txInputs);
-            }
-        }
+        // txInputs = await getTxByHash.get(txHash, RPC_URL, txInputs);
+        // if (!txInputs?.hash) {
+        //     const try2Url = RPC_URLS[Math.floor(Math.random() * RPC_URLS.length)];
+        //     txInputs = await getTxByHash.get(txHash, try2Url, txInputs);
+        //     if (!txInputs?.hash) {
+        //         const try3Url = RPC_URLS[Math.floor(Math.random() * RPC_URLS.length)];
+        //         txInputs = await getTxByHash.get(txHash, try3Url, txInputs);
+        //     }
+        // }
 
         const returnObj = {
             address: address,
