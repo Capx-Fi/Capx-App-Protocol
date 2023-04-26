@@ -7,17 +7,12 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ICapxQuestForger} from "./interfaces/ICapxQuestForger.sol";
+import {ICapxIOUQuest} from "./interfaces/ICapxIOUQuest.sol";
+import {ICapxIOUToken} from "./interfaces/ICapxIOUToken.sol";
 import {CapxQuest as CapxQuestContract} from "./CapxQuest.sol";
 import {CapxIOUQuest} from "./CapxIOUQuest.sol";
+import {ICapxIOUForger} from "./interfaces/ICapxIOUForger.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
-
-interface ICapxIOUQuest {
-     function claim(
-        bytes32 _messageHash,
-        bytes memory _signature,
-        address _sender
-    ) external;
-}
 
 contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, ICapxQuestForger {
     using SafeERC20 for IERC20;
@@ -32,6 +27,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     address public claimSignerAddress;
     address public feeReceiver;
     address public capxIOUQuestAddress;
+    address public capxIOUForger;
 
     mapping(address => bool) public isCapxQuest;
 
@@ -52,11 +48,13 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         address _claimSignerAddress,
         address _feeReceiver,
         address _capxIOUQuestAddress,
-        address _owner
+        address _owner,
+        address _capxIOUForger
     ) external initializer {
         if (_claimSignerAddress == address(0)) revert ZeroAddressNotAllowed();
         if (_feeReceiver == address(0)) revert ZeroAddressNotAllowed();
         if (_capxIOUQuestAddress == address(0)) revert ZeroAddressNotAllowed();
+        if (_capxIOUForger == address(0)) revert ZeroAddressNotAllowed();
         if (_owner == address(0)) revert ZeroAddressNotAllowed();
 
         __Ownable_init();
@@ -66,6 +64,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         feeReceiver = _feeReceiver;
         questFee = 0;
         capxIOUQuestAddress = _capxIOUQuestAddress;
+        capxIOUForger = _capxIOUForger;
     }
 
     function createQuest(
@@ -78,7 +77,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         string memory _questId
     ) external onlyOwner returns (address) {
         if (_rewardToken == address(0)) revert ZeroAddressNotAllowed();
-
+        require(ICapxIOUForger(capxIOUForger).isCapxIOUToken(_rewardToken),"NOT Capx Generated IOU");
         CapxQuest storage currCapxQuest = capxQuests[_questId];
 
         if(currCapxQuest.questAddress != address(0)) revert QuestIdUsed();
@@ -89,7 +88,8 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
             address newCapxQuest = Clones.cloneDeterministic(capxIOUQuestAddress,salt);
             isCapxQuest[newCapxQuest] = true;
             capxQuestsAddress[_questId] = newCapxQuest;
-
+            ICapxIOUToken(_rewardToken).addToWhitelist(newCapxQuest);
+            
             {
                 // Transfer the tokens.
                 uint256 requiredTokens = ((10_000 + questFee) * (_maxParticipants * _rewardAmountInWei)) / 10_000;
@@ -134,6 +134,11 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         capxIOUQuestAddress = _capxIOUQuestAddress;
     }
 
+    function setCapxIOUForger(address _capxIOUForger) public onlyOwner {
+        if (_capxIOUForger == address(0)) revert ZeroAddressNotAllowed();
+        capxIOUForger = _capxIOUForger;
+    }
+
     function setClaimSignerAddress(address _claimSignerAddress) public onlyOwner {
         if (_claimSignerAddress == address(0)) revert ZeroAddressNotAllowed();
         claimSignerAddress = _claimSignerAddress;
@@ -160,14 +165,17 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     function claim(
         bytes32 _messageHash,
         bytes memory _signature,
-        string memory _questId
+        string memory _questId,
+        address _receiver
     ) external {
         address capxQuest = capxQuestsAddress[_questId];
+        if (_receiver == address(0)) revert ZeroAddressNotAllowed();
         require(address(capxQuest) != address(0) && isCapxQuest[capxQuest], "Invalid Capx Quest ID");
         ICapxIOUQuest(capxQuest).claim(
             _messageHash,
             _signature,
-            msg.sender
+            msg.sender,
+            _receiver
         );
     }
 
@@ -175,6 +183,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         address _questAddress,
         string memory _questId,
         address _claimer,
+        address _claimReceiver,
         address _rewardToken,
         uint256 _rewardAmount
     ) external {
@@ -188,6 +197,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
             msg.sender,
             _questId,
             _claimer,
+            _claimReceiver,
             _rewardToken,
             _rewardAmount
         );

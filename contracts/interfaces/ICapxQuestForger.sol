@@ -27,6 +27,7 @@ interface ICapxQuestForger {
         address indexed questAddress,
         string questId,
         address claimer,
+        address claimReceiver,
         address rewardToken,
         uint256 rewardAmount
     );
