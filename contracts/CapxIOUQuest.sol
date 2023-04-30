@@ -78,7 +78,7 @@ contract CapxIOUQuest is CapxQuest {
         return (participantCount * rewardAmountInWei * questFee) / 10_000;
     }
 
-    function withdrawLeftOverRewards() external onlyFeeReceiverOrOwner withdrawAllowed {
+    function withdrawLeftOverRewards() external onlyFeeReceiverOrOwner nonReentrant() withdrawAllowed {
         require(!hasWithdrawn, "Already Withdrawn");
 
         uint unclaimedTokens = (maxParticipants - participantCount) * rewardAmountInWei;

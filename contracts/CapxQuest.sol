@@ -150,7 +150,7 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
         return rewardToken;
     }
 
-    function recoverToken(address _tokenAddress) external onlyOwner {
+    function recoverToken(address _tokenAddress) external nonReentrant onlyOwner {
         require(_tokenAddress != rewardToken, "Reward Token Cannot be Recovered");
 
         uint balance = address(this).balance;
@@ -163,5 +163,44 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
         if (tokenBalance > 0) {
             IERC20(_tokenAddress).safeTransfer(msg.sender, tokenBalance);
         }
+    }
+
+    function updateRewardAmountInWei(
+        uint256 _rewardAmountInWei
+    ) external nonReentrant onlyOwner {
+        require(_rewardAmountInWei != 0 && _rewardAmountInWei != rewardAmountInWei,"Invalid Reward Amount");
+        require(maxParticipants > participantCount, "Invalid Request: All Rewards claimed");
+        if (rewardAmountInWei < _rewardAmountInWei) {
+            // Reward Value increased. Transfer token into the contract.
+            uint256 transferAmount = (_rewardAmountInWei - rewardAmountInWei) * (maxParticipants - participantCount);
+            IERC20(rewardToken).safeTransferFrom(msg.sender,address(this), transferAmount);
+        } else {
+            // Reward Value decreased. Transfer token from the contract.
+            uint256 transferAmount = (rewardAmountInWei - _rewardAmountInWei) * (maxParticipants - participantCount);
+            IERC20(rewardToken).safeTransfer(msg.sender, transferAmount);
+        }
+        rewardAmountInWei = _rewardAmountInWei;
+    }
+
+    function updateTotalParticipants(
+        uint256 _maxParticipants
+    ) external nonReentrant onlyOwner {
+        require(_maxParticipants != 0 && _maxParticipants != maxParticipants, "Invalid Participant Count");
+        if (maxParticipants < _maxParticipants) {
+            // Max Participants Increased. Transfer token into the contract.
+            uint256 transferAmount = (rewardAmountInWei * (_maxParticipants - maxParticipants));
+            IERC20(rewardToken).safeTransferFrom(msg.sender,address(this), transferAmount);
+        } else {
+            // Reward Value decreased. Transfer token from the contract.
+            uint256 transferAmount = (rewardAmountInWei * (maxParticipants - _maxParticipants));
+            IERC20(rewardToken).safeTransfer(msg.sender, transferAmount);
+        }
+        maxParticipants = _maxParticipants;
+    }
+
+    function extendQuest(
+        uint256 _endTime
+    ) external nonReentrant onlyOwner {
+        endTime = _endTime;
     }
 }

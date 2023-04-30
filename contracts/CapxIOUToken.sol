@@ -59,9 +59,11 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
     function initialize (
         string memory name_, 
         string memory symbol_,
-        address owner_
+        address owner_,
+        address capxQuestForger
     ) checkIsAddressValid(owner_) external {
         require(!_initialized,"CapxIOUToken: Already Initialized.");
+        require(address(capxQuestForger) != address(0),"CapxIOUToken: Invalid CapxQuestForger.");
         _name = name_;
         _symbol = symbol_;
         _decimal = 18;
@@ -69,6 +71,8 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
 
         // Transfer Ownership
         _transferOwnership(owner_);
+        authorized[capxQuestForger] = true;
+        whitelist[capxQuestForger] = true;
     }
 
     /**
