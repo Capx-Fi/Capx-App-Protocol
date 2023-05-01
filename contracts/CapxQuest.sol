@@ -14,6 +14,7 @@ interface CapxIQuestForger {
         address questAddress,
         string memory questId,
         address claimer,
+        address claimReceiver,
         address rewardToken,
         uint256 rewardAmount
     ) external;
@@ -100,7 +101,8 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
     function claim(
         bytes32 _messageHash,
         bytes memory _signature,
-        address _sender
+        address _sender,
+        address _receiver
     ) external virtual nonReentrant isQuestActive whenNotPaused {
         require(msg.sender == address(capxQuestForger),"NOT Authorized to call.");
         if (participantCount + 1 > maxParticipants) revert OverMaxParticipants();
@@ -108,19 +110,20 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
         if (!started) revert QuestNotStarted();
         if (block.timestamp < startTime) revert QuestNotStarted();
         if (block.timestamp > endTime) revert QuestEnded();
-        if (keccak256(abi.encodePacked(_sender, questId)) != _messageHash) revert InvalidMessageHash();
+        if (keccak256(abi.encodePacked(_sender,_receiver,questId)) != _messageHash) revert InvalidMessageHash();
         if (recoverSigner(_messageHash, _signature) != capxQuestForger.claimSignerAddress()) revert InvalidSigner();
 
         claimedUsers[_sender] = true;
+        claimedUsers[_receiver] = true;
         ++participantCount;
 
         uint256 redeemableTokens = _calculateRedeemableTokens();
         uint256 rewards = _calculateRewards(redeemableTokens);
-        _transferRewards(rewards);
+        _transferRewards(_receiver, rewards);
 
         claimedTokenAmt += rewards;
 
-        capxQuestForger.emitClaim(address(this), questId, _sender, rewardToken, rewards);
+        capxQuestForger.emitClaim(address(this), questId, _sender, _receiver, rewardToken, rewards);
     }
 
     function _calculateRedeemableTokens() internal virtual returns (uint256) {
@@ -131,7 +134,7 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
         revert ChildImplementationMissing();
     }
 
-    function _transferRewards(uint256 _rewardAmount) internal virtual {
+    function _transferRewards(address _claimer, uint256 _rewardAmount) internal virtual {
         revert ChildImplementationMissing();
     }
 
@@ -147,7 +150,7 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
         return rewardToken;
     }
 
-    function recoverToken(address _tokenAddress) external onlyOwner {
+    function recoverToken(address _tokenAddress) external nonReentrant onlyOwner {
         require(_tokenAddress != rewardToken, "Reward Token Cannot be Recovered");
 
         uint balance = address(this).balance;
@@ -160,5 +163,44 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
         if (tokenBalance > 0) {
             IERC20(_tokenAddress).safeTransfer(msg.sender, tokenBalance);
         }
+    }
+
+    function updateRewardAmountInWei(
+        uint256 _rewardAmountInWei
+    ) external nonReentrant onlyOwner {
+        require(_rewardAmountInWei != 0 && _rewardAmountInWei != rewardAmountInWei,"Invalid Reward Amount");
+        require(maxParticipants > participantCount, "Invalid Request: All Rewards claimed");
+        if (rewardAmountInWei < _rewardAmountInWei) {
+            // Reward Value increased. Transfer token into the contract.
+            uint256 transferAmount = (_rewardAmountInWei - rewardAmountInWei) * (maxParticipants - participantCount);
+            IERC20(rewardToken).safeTransferFrom(msg.sender,address(this), transferAmount);
+        } else {
+            // Reward Value decreased. Transfer token from the contract.
+            uint256 transferAmount = (rewardAmountInWei - _rewardAmountInWei) * (maxParticipants - participantCount);
+            IERC20(rewardToken).safeTransfer(msg.sender, transferAmount);
+        }
+        rewardAmountInWei = _rewardAmountInWei;
+    }
+
+    function updateTotalParticipants(
+        uint256 _maxParticipants
+    ) external nonReentrant onlyOwner {
+        require(_maxParticipants != 0 && _maxParticipants != maxParticipants, "Invalid Participant Count");
+        if (maxParticipants < _maxParticipants) {
+            // Max Participants Increased. Transfer token into the contract.
+            uint256 transferAmount = (rewardAmountInWei * (_maxParticipants - maxParticipants));
+            IERC20(rewardToken).safeTransferFrom(msg.sender,address(this), transferAmount);
+        } else {
+            // Reward Value decreased. Transfer token from the contract.
+            uint256 transferAmount = (rewardAmountInWei * (maxParticipants - _maxParticipants));
+            IERC20(rewardToken).safeTransfer(msg.sender, transferAmount);
+        }
+        maxParticipants = _maxParticipants;
+    }
+
+    function extendQuest(
+        uint256 _endTime
+    ) external nonReentrant onlyOwner {
+        endTime = _endTime;
     }
 }

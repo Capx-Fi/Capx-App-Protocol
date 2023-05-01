@@ -26,6 +26,7 @@ async function listenForEvents() {
     CapxQuestForger.events.CapxQuestCreated({
         fromBlock: 33348175,
     }).on("data", async(event) => {
+        console.log(event);
         questCreation.handle(event);
     });
 
