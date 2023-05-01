@@ -25,6 +25,17 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         uint participantCount;
     }
 
+    struct CreateQuest {
+        address rewardToken;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 maxParticipants;
+        uint256 rewardAmountInWei;
+        string questRewardType;
+        string communityId;
+        uint256 questNumber;
+    }
+
     address public claimSignerAddress;
     address public feeReceiver;
     address public capxIOUQuestAddress;
@@ -102,30 +113,24 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     }
 
     function createQuest(
-        address _rewardToken,
-        uint256 _startTime,
-        uint256 _endTime,
-        uint256 _maxParticipants,
-        uint256 _rewardAmountInWei,
-        string memory _questRewardType,
-        string memory _communityId
+        CreateQuest memory quest
     ) external onlyOwner whenNotPaused returns (address) {
-        if (_rewardToken == address(0)) revert ZeroAddressNotAllowed();
-        require(ICapxIOUForger(capxIOUForger).isCapxIOUToken(_rewardToken),"NOT Capx Generated IOU");
+        if (quest.rewardToken == address(0)) revert ZeroAddressNotAllowed();
+        require(ICapxIOUForger(capxIOUForger).isCapxIOUToken(quest.rewardToken),"NOT Capx Generated IOU");
         {
-            if(communityQuestCount[_communityId] == 0) {
+            if(communityQuestCount[quest.communityId] == 0) {
                 // Register Reward Token.
-                communityRewardToken[_communityId][_rewardToken] = true;
-                communityOwner[_communityId] = msg.sender;
+                communityRewardToken[quest.communityId][quest.rewardToken] = true;
+                communityOwner[quest.communityId] = msg.sender;
             } else {
-                require(communityRewardToken[_communityId][_rewardToken],"Invalid Reward Token for Community");
+                require(communityRewardToken[quest.communityId][quest.rewardToken],"Invalid Reward Token for Community");
             }
         }
-        string memory _questId = string(abi.encodePacked(_communityId,"_",uintToStr(communityQuestCount[_communityId])));
+        string memory _questId = string(abi.encodePacked(quest.communityId,"_",uintToStr(quest.questNumber)));
         CapxQuest storage currCapxQuest = capxQuests[_questId];
 
         if(currCapxQuest.questAddress != address(0)) revert QuestIdUsed();
-        if (keccak256(abi.encodePacked(_questRewardType)) == IOU) {
+        if (keccak256(abi.encodePacked(quest.questRewardType)) == IOU) {
             // Reward Type IOU.
             // TODO: Check for Reward Token in Whitelist.
             address newCapxQuest;
@@ -135,41 +140,41 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
             }
             isCapxQuest[newCapxQuest] = true;
             capxQuestsAddress[_questId] = newCapxQuest;
-            ICapxIOUToken(_rewardToken).addToWhitelist(newCapxQuest);
+            ICapxIOUToken(quest.rewardToken).addToWhitelist(newCapxQuest);
             
             {
                 // Transfer the tokens.
-                IERC20(_rewardToken).safeTransferFrom(msg.sender, newCapxQuest, ((10_000 + questFee) * (_maxParticipants * _rewardAmountInWei)) / 10_000);
+                IERC20(quest.rewardToken).safeTransferFrom(msg.sender, newCapxQuest, ((10_000 + questFee) * (quest.maxParticipants * quest.rewardAmountInWei)) / 10_000);
             }
 
             emit CapxQuestCreated(
                 msg.sender,
                 address(newCapxQuest),
                 _questId,
-                _questRewardType,
-                _rewardToken,
-                _startTime,
-                _endTime,
-                _maxParticipants,
-                _rewardAmountInWei
+                quest.questRewardType,
+                quest.rewardToken,
+                quest.startTime,
+                quest.endTime,
+                quest.maxParticipants,
+                quest.rewardAmountInWei
             );
 
             currCapxQuest.questAddress = address(newCapxQuest);
-            currCapxQuest.maxParticipants = _maxParticipants;
+            currCapxQuest.maxParticipants = quest.maxParticipants;
 
             CapxIOUQuest(newCapxQuest).initialize(
-                _rewardToken,
-                _startTime,
-                _endTime,
-                _maxParticipants,
-                _rewardAmountInWei,
+                quest.rewardToken,
+                quest.startTime,
+                quest.endTime,
+                quest.maxParticipants,
+                quest.rewardAmountInWei,
                 _questId,
                 questFee,
                 feeReceiver
             );
 
             CapxIOUQuest(newCapxQuest).transferOwnership(msg.sender);
-            communityQuestCount[_communityId] += 1;
+            communityQuestCount[quest.communityId] += 1;
             return newCapxQuest;
         } else {
             revert QuestRewardTypeInvalid();

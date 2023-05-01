@@ -13,7 +13,8 @@ abstract contract IOUToken {
         string memory name_, 
         string memory symbol_,
         address owner_,
-        address capxQuestForger_
+        address capxQuestForger_,
+        uint256 totalCappedSupply_
     ) public virtual;
 }
 
@@ -27,7 +28,8 @@ contract CapxIOUForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, Pa
         address indexed capxIOUToken,
         address indexed owner,
         string name,
-        string symbol
+        string symbol,
+        uint256 maxTotalSupply
     );
 
     constructor() initializer {}
@@ -83,9 +85,11 @@ contract CapxIOUForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, Pa
     function createIOUToken(
         string memory name,
         string memory symbol,
-        address _owner
+        address _owner,
+        uint256 totalCappedSupplyInWei
     ) external onlyOwner checkIsAddressValid(_owner) nonReentrant() whenNotPaused virtual returns(address iouToken) {
         require(capxQuestForger != address(0),"CapxQuestForger NOT configured.");
+        require(totalCappedSupplyInWei != 0,"Token's Maximum Capped Supply cannot be ZERO");
         iouToken = Clones.clone(capxIOUToken);
         capxIOUTokens[iouToken] = true;
 
@@ -93,14 +97,16 @@ contract CapxIOUForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, Pa
             iouToken,
             _owner,
             name,
-            symbol
+            symbol,
+            totalCappedSupplyInWei
         );
 
         IOUToken(iouToken).initialize(
             name,
             symbol,
             _owner,
-            capxQuestForger
+            capxQuestForger,
+            totalCappedSupplyInWei
         );
     }
 

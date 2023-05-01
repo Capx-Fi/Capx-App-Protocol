@@ -23,6 +23,7 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
     mapping(address => bool) public authorized;
 
     uint256 private _totalSupply;
+    uint256 private _maxTotalSupply;
 
     string private _name;
     string private _symbol;
@@ -34,7 +35,7 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
     event UnAuthorized(address indexed account);
 
     modifier onlyWhitelisted(address sender, address recipient) {
-        require(whitelist[sender] || whitelist[recipient], "CapxIOUToken: neither sender nor recipient is whitelisted");
+        require(owner() == _msgSender() || whitelist[sender] || whitelist[recipient], "CapxIOUToken: neither sender nor recipient is whitelisted");
         _;
     }
 
@@ -60,19 +61,21 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
         string memory name_, 
         string memory symbol_,
         address owner_,
-        address capxQuestForger
+        address capxQuestForger_,
+        uint256 totalCappedSupply_
     ) checkIsAddressValid(owner_) external {
         require(!_initialized,"CapxIOUToken: Already Initialized.");
-        require(address(capxQuestForger) != address(0),"CapxIOUToken: Invalid CapxQuestForger.");
+        require(address(capxQuestForger_) != address(0),"CapxIOUToken: Invalid CapxQuestForger.");
         _name = name_;
         _symbol = symbol_;
         _decimal = 18;
+        _maxTotalSupply = totalCappedSupply_;
         _initialized = true;
 
         // Transfer Ownership
         _transferOwnership(owner_);
-        authorized[capxQuestForger] = true;
-        whitelist[capxQuestForger] = true;
+        authorized[capxQuestForger_] = true;
+        whitelist[capxQuestForger_] = true;
     }
 
     /**
@@ -112,6 +115,13 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
      */
     function totalSupply() public view virtual override returns (uint256) {
         return _totalSupply;
+    }
+
+    /**
+     * @dev Returns the cap on the token's total supply.
+     */
+    function maxTotalSupply() public view virtual returns (uint256) {
+        return _maxTotalSupply;
     }
 
     /**
@@ -274,6 +284,7 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
      * - `account` cannot be the zero address.
      */
     function _mint(address account, uint256 amount) internal virtual {
+        require(totalSupply() + amount <= maxTotalSupply(), "CapxIOUToken: Token cap exceeded");
         require(account != address(0), "CapxIOUToken: Mint to the zero address");
 
         _beforeTokenTransfer(address(0), account, amount);
