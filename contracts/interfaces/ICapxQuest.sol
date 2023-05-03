@@ -21,5 +21,13 @@ interface ICapxQuest {
 
     function getRewardAmount() external view returns (uint256);
     function getRewardToken() external view returns (address);
-    
+
+    function claim(
+        bytes32 _messageHash,
+        bytes memory _signature,
+        address _sender,
+        address _receiver,
+        uint256 _timestamp,
+        uint256 _rewardAmount
+    ) external;
 }

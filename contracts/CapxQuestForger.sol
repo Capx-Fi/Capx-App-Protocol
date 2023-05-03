@@ -8,16 +8,17 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ICapxQuestForger} from "./interfaces/ICapxQuestForger.sol";
-import {ICapxIOUQuest} from "./interfaces/ICapxIOUQuest.sol";
+import {ICapxQuest} from "./interfaces/ICapxQuest.sol";
 import {ICapxIOUToken} from "./interfaces/ICapxIOUToken.sol";
-import {CapxQuest as CapxQuestContract} from "./CapxQuest.sol";
 import {CapxIOUQuest} from "./CapxIOUQuest.sol";
+import {CapxDailyIOUQuest} from "./CapxDailyIOUQuest.sol";
 import {ICapxIOUForger} from "./interfaces/ICapxIOUForger.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
 contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ICapxQuestForger {
     using SafeERC20 for IERC20;
     bytes32 public constant IOU = keccak256(abi.encodePacked("iou"));
+    bytes32 public constant DAILY_IOU = keccak256(abi.encodePacked("daily_iou"));
 
     struct CapxQuest {
         address questAddress;
@@ -39,6 +40,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     address public claimSignerAddress;
     address public feeReceiver;
     address public capxIOUQuestAddress;
+    address public capxDailyIOUQuestAddress;
     address public capxIOUForger;
 
     mapping(address => bool) public isCapxQuest;
@@ -64,6 +66,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         address _claimSignerAddress,
         address _feeReceiver,
         address _capxIOUQuestAddress,
+        address _capxDailyIOUQuestAddress,
         address _owner,
         address _capxIOUForger
     ) external initializer {
@@ -72,6 +75,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         if (_capxIOUQuestAddress == address(0)) revert ZeroAddressNotAllowed();
         if (_capxIOUForger == address(0)) revert ZeroAddressNotAllowed();
         if (_owner == address(0)) revert ZeroAddressNotAllowed();
+        if (_capxDailyIOUQuestAddress == address(0)) revert ZeroAddressNotAllowed();
 
         __Ownable_init();
         _transferOwnership(_owner);
@@ -80,6 +84,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         feeReceiver = _feeReceiver;
         questFee = 0;
         capxIOUQuestAddress = _capxIOUQuestAddress;
+        capxDailyIOUQuestAddress = _capxDailyIOUQuestAddress;
         capxIOUForger = _capxIOUForger;
     }
 
@@ -150,6 +155,7 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
             emit CapxQuestCreated(
                 msg.sender,
                 address(newCapxQuest),
+                "iou",
                 _questId,
                 quest.questRewardType,
                 quest.rewardToken,
@@ -174,6 +180,50 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
             );
 
             CapxIOUQuest(newCapxQuest).transferOwnership(msg.sender);
+            communityQuestCount[quest.communityId] += 1;
+            return newCapxQuest;
+        } else if (keccak256(abi.encodePacked(quest.questRewardType)) == DAILY_IOU) {
+            address newCapxQuest;
+            {
+                bytes32 salt = keccak256(abi.encodePacked(_questId));
+                newCapxQuest = Clones.cloneDeterministic(capxDailyIOUQuestAddress,salt);
+            }
+            isCapxQuest[newCapxQuest] = true;
+            capxQuestsAddress[_questId] = newCapxQuest;
+            ICapxIOUToken(quest.rewardToken).addToWhitelist(newCapxQuest);
+            {
+                // Transfer the tokens.
+                IERC20(quest.rewardToken).safeTransferFrom(msg.sender, newCapxQuest, ((10_000 + questFee) * (quest.maxParticipants * quest.rewardAmountInWei)) / 10_000);
+            }
+
+            emit CapxQuestCreated(
+                msg.sender,
+                address(newCapxQuest),
+                "daily_iou",
+                _questId,
+                quest.questRewardType,
+                quest.rewardToken,
+                quest.startTime,
+                quest.endTime,
+                quest.maxParticipants,
+                quest.rewardAmountInWei
+            );
+
+            currCapxQuest.questAddress = address(newCapxQuest);
+            currCapxQuest.maxParticipants = quest.maxParticipants;
+
+            CapxDailyIOUQuest(newCapxQuest).initialize(
+                quest.rewardToken,
+                quest.startTime,
+                quest.endTime,
+                quest.maxParticipants,
+                quest.rewardAmountInWei,
+                _questId,
+                questFee,
+                feeReceiver
+            );
+
+            CapxDailyIOUQuest(newCapxQuest).transferOwnership(msg.sender);
             communityQuestCount[quest.communityId] += 1;
             return newCapxQuest;
         } else {
@@ -226,33 +276,46 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         return capxQuests[_questId].participantCount;
     }
 
-    function predictQuestAddress(string memory _questId) external view returns(address) {
+    function predictIOUQuestAddress(string calldata _communityId, uint256 _questNumber) external view returns(address) {
+        string memory _questId = string(abi.encodePacked(_communityId,"_",uintToStr(_questNumber)));
         bytes32 salt = keccak256(abi.encodePacked(_questId));
         return Clones.predictDeterministicAddress(capxIOUQuestAddress,salt);
+    }
+
+    function predictDailyIOUQuestAddress(string calldata _communityId, uint256 _questNumber) external view returns(address) {
+        string memory _questId = string(abi.encodePacked(_communityId,"_",uintToStr(_questNumber)));
+        bytes32 salt = keccak256(abi.encodePacked(_questId));
+        return Clones.predictDeterministicAddress(capxDailyIOUQuestAddress,salt);
     }
 
     function claim(
         bytes32 _messageHash,
         bytes memory _signature,
         string memory _questId,
-        address _receiver
+        address _receiver,
+        uint256 _timestamp,
+        uint256 _rewardAmount
     ) external whenNotPaused {
         address capxQuest = capxQuestsAddress[_questId];
         if (_receiver == address(0)) revert ZeroAddressNotAllowed();
         require(address(capxQuest) != address(0) && isCapxQuest[capxQuest], "Invalid Capx Quest ID");
-        ICapxIOUQuest(capxQuest).claim(
+        ICapxQuest(capxQuest).claim(
             _messageHash,
             _signature,
             msg.sender,
-            _receiver
+            _receiver,
+            _timestamp,
+            _rewardAmount
         );
     }
 
     function emitClaim(
         address _questAddress,
         string memory _questId,
+        string memory _questType,
         address _claimer,
         address _claimReceiver,
+        uint256 _timestamp,
         address _rewardToken,
         uint256 _rewardAmount
     ) external {
@@ -265,8 +328,10 @@ contract CapxQuestForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         emit CapxQuestRewardClaimed(
             msg.sender,
             _questId,
+            _questType,
             _claimer,
             _claimReceiver,
+            _timestamp,
             _rewardToken,
             _rewardAmount
         );

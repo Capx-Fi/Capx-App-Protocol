@@ -4,14 +4,14 @@ pragma solidity ^0.8.16;
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {CapxQuest} from "./CapxQuest.sol";
 
-contract CapxIOUQuest is CapxQuest {
+contract CapxDailyIOUQuest is CapxQuest {
     using SafeERC20 for IERC20;
 
     uint16 public questFee;
     bool public hasWithdrawn;
     address public feeReceiver;
 
-    mapping(address => bool) private claimedUsers;
+    mapping(address => mapping(uint256 => bool)) private claimedUsers;
 
     constructor() {
         _disableInitializers();
@@ -72,21 +72,20 @@ contract CapxIOUQuest is CapxQuest {
         uint256 _rewardAmount
     ) external virtual override nonReentrant isQuestActive whenNotPaused {
         require(msg.sender == address(capxQuestForger),"NOT Authorized to call.");
-        require(_rewardAmount*(10**18) == rewardAmountInWei,"Invalid Reward Amount");
+        require(_timestamp < block.timestamp, "Cannot Claim Future Rewards");
         if (participantCount + 1 > maxParticipants) revert OverMaxParticipants();
-        if (claimedUsers[_sender] == true) revert AlreadyClaimed();
+        if (claimedUsers[_sender][_timestamp] == true) revert AlreadyClaimed();
         if (!started) revert QuestNotStarted();
         if (block.timestamp < startTime) revert QuestNotStarted();
         if (block.timestamp > endTime) revert QuestEnded();
         if (keccak256(abi.encodePacked(_sender,_receiver,questId,_timestamp,_rewardAmount)) != _messageHash) revert InvalidMessageHash();
         if (recoverSigner(_messageHash, _signature) != capxQuestForger.claimSignerAddress()) revert InvalidSigner();
 
-        claimedUsers[_sender] = true;
-        claimedUsers[_receiver] = true;
+        claimedUsers[_sender][_timestamp] = true;
+        claimedUsers[_receiver][_timestamp] = true;
         ++participantCount;
 
-        uint256 redeemableTokens = _calculateRedeemableTokens();
-        uint256 rewards = _calculateRewards(redeemableTokens);
+        uint256 rewards = _calculateRewards(_rewardAmount);
         _transferRewards(_receiver, rewards);
 
         claimedTokenAmt += rewards;
@@ -94,7 +93,7 @@ contract CapxIOUQuest is CapxQuest {
         capxQuestForger.emitClaim(
             address(this), 
             questId,
-            "iou",
+            "daily_iou", 
             _sender, 
             _receiver, 
             _timestamp, 
@@ -132,7 +131,7 @@ contract CapxIOUQuest is CapxQuest {
         IERC20(rewardToken).safeTransfer(feeReceiver, this.protocolFee());
     }
 
-    function isClaimed(address _addressInScope) external view returns (bool) {
-        return claimedUsers[_addressInScope];
+    function isClaimed(address _addressInScope, uint256 _timestamp) external view returns (bool) {
+        return claimedUsers[_addressInScope][_timestamp];
     }
 }

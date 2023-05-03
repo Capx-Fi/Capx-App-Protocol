@@ -8,24 +8,12 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import {ICapxQuest} from "./interfaces/ICapxQuest.sol";
-
-interface CapxIQuestForger {
-    function emitClaim(
-        address questAddress,
-        string memory questId,
-        address claimer,
-        address claimReceiver,
-        address rewardToken,
-        uint256 rewardAmount
-    ) external;
-
-    function claimSignerAddress() external view returns(address);
-}
+import {ICapxQuestForger} from "./interfaces/ICapxQuestForger.sol";
 
 contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, ICapxQuest {
     using SafeERC20 for IERC20;
 
-    CapxIQuestForger public capxQuestForger;
+    ICapxQuestForger public capxQuestForger;
 
     string public questId;
     address public rewardToken;
@@ -37,9 +25,6 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
     bool public started;
     uint256 public claimedTokenAmt;
     uint256 public participantCount;
-
-
-    mapping(address => bool) private claimedUsers;
 
     function questInit(
         address _rewardToken,
@@ -58,7 +43,7 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
         maxParticipants = _maxParticipants;
         rewardAmountInWei = _rewardAmountInWei;
         questId = _questId;
-        capxQuestForger = CapxIQuestForger(msg.sender);
+        capxQuestForger = ICapxQuestForger(msg.sender);
 
         __Ownable_init();
         __Pausable_init();
@@ -102,28 +87,11 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
         bytes32 _messageHash,
         bytes memory _signature,
         address _sender,
-        address _receiver
+        address _receiver,
+        uint256 _timestamp,
+        uint256 _rewardAmount
     ) external virtual nonReentrant isQuestActive whenNotPaused {
-        require(msg.sender == address(capxQuestForger),"NOT Authorized to call.");
-        if (participantCount + 1 > maxParticipants) revert OverMaxParticipants();
-        if (claimedUsers[_sender] == true) revert AlreadyClaimed();
-        if (!started) revert QuestNotStarted();
-        if (block.timestamp < startTime) revert QuestNotStarted();
-        if (block.timestamp > endTime) revert QuestEnded();
-        if (keccak256(abi.encodePacked(_sender,_receiver,questId)) != _messageHash) revert InvalidMessageHash();
-        if (recoverSigner(_messageHash, _signature) != capxQuestForger.claimSignerAddress()) revert InvalidSigner();
-
-        claimedUsers[_sender] = true;
-        claimedUsers[_receiver] = true;
-        ++participantCount;
-
-        uint256 redeemableTokens = _calculateRedeemableTokens();
-        uint256 rewards = _calculateRewards(redeemableTokens);
-        _transferRewards(_receiver, rewards);
-
-        claimedTokenAmt += rewards;
-
-        capxQuestForger.emitClaim(address(this), questId, _sender, _receiver, rewardToken, rewards);
+        revert ChildImplementationMissing();
     }
 
     function _calculateRedeemableTokens() internal virtual returns (uint256) {
@@ -136,10 +104,6 @@ contract CapxQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, 
 
     function _transferRewards(address _claimer, uint256 _rewardAmount) internal virtual {
         revert ChildImplementationMissing();
-    }
-
-    function isClaimed(address _addressInScope) external view returns (bool) {
-        return claimedUsers[_addressInScope];
     }
 
     function getRewardAmount() external view returns (uint256) {
