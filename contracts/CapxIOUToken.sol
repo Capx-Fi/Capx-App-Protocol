@@ -5,8 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
-contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
+contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializable {
     
     modifier checkIsAddressValid(address account)
     {
@@ -118,7 +119,7 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
     }
 
     /**
-     * @dev Returns the cap on the token's total supply.
+     * @dev Returns the Maximum Cap on the token's total supply.
      */
     function maxTotalSupply() public view virtual returns (uint256) {
         return _maxTotalSupply;
@@ -256,7 +257,7 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
         address from,
         address to,
         uint256 amount
-    ) internal virtual {
+    ) internal virtual whenNotPaused {
         require(from != address(0), "CapxIOUToken: Transfer from the zero address");
         require(to != address(0), "CapxIOUToken: Transfer to the zero address");
 
@@ -421,39 +422,95 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Initializable {
     }
 
     /**
-     * @dev Add `account` to the `whitelist` list.
+     * @dev Destroys `amount` tokens from the caller.
      *
+     * See {ERC20-_burn}.
      */
+    function burn(uint256 amount) public virtual {
+        _burn(_msgSender(), amount);
+    }
+
+    /**
+     * @dev Destroys `amount` tokens from `account`, deducting from the caller's
+     * allowance.
+     *
+     * See {ERC20-_burn} and {ERC20-allowance}.
+     *
+     * Requirements:
+     *
+     * - the caller must have allowance for ``accounts``'s tokens of at least
+     * `amount`.
+     */
+    function burnFrom(address account, uint256 amount) public virtual {
+        _spendAllowance(account, _msgSender(), amount);
+        _burn(account, amount);
+    }
+
+    /**
+     * @dev Triggers stopped state.
+     *
+     * Requirements:
+     *
+     * - The contract must not be paused.
+     */
+     function pause() external virtual whenNotPaused onlyOwner {
+        _pause();
+    }
+
+     /**
+     * @dev Returns to normal state.
+     *
+     * Requirements:
+     *
+     * - The contract must be paused.
+     */
+    function unpause() external virtual whenPaused onlyOwner {
+        _unpause();
+    }
+
+    /**
+    * @dev Add `account` to the `whitelist` list.
+    *
+    */
     function addToWhitelist(address account) external onlyAuthorized {
         whitelist[account] = true;
         emit Whitelisted(account);
     }
 
     /**
-     * @dev Remove `account` from the `whitelist` list.
-     *
-     */
+    * @dev Remove `account` from the `whitelist` list.
+    *
+    */
     function removeFromWhitelist(address account) external onlyAuthorized {
         whitelist[account] = false;
         emit Unwhitelisted(account);
     }
 
     /**
-     * @dev Add `account` to the `authorized` list.
-     *
-     */
+    * @dev Add `account` to the `authorized` list.
+    *
+    */
     function addToAuthorized(address account) external onlyOwner {
         authorized[account] = true;
         emit Authorized(account);
     }
 
     /**
-     * @dev Remove `account` from the `authorized` list.
-     *
-     */
+    * @dev Remove `account` from the `authorized` list.
+    *
+    */
     function removeFromAuthorized(address account) external onlyOwner {
         authorized[account] = false;
         emit UnAuthorized(account);
+    }
+
+    /**
+    * @dev Updates the maximum total supply allowed for this contract.
+    * Only the contract owner can perform this operation.
+    * @param __maxTotalSupply The new maximum total supply to set.
+    */
+    function updateMaxTotalSupply(uint256 __maxTotalSupply) external onlyOwner {
+        _maxTotalSupply = __maxTotalSupply;
     }
 
 }
