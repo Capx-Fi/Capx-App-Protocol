@@ -7,12 +7,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializable {
+contract TokenPoweredByCapx is IERC20, IERC20Metadata, Ownable, Pausable, Initializable {
     
     modifier checkIsAddressValid(address account)
     {
-        require(account != address(0), "CapxIOUToken: Invalid address");
-        require(account == address(account), "CapxIOUToken: Invalid address");
+        require(account != address(0), "TokenPoweredByCapx: Invalid address");
+        require(account == address(account), "TokenPoweredByCapx: Invalid address");
         _;
     }
     
@@ -36,12 +36,12 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializabl
     event UnAuthorized(address indexed account);
 
     modifier onlyWhitelisted(address sender, address recipient) {
-        require(owner() == _msgSender() || whitelist[sender] || whitelist[recipient], "CapxIOUToken: neither sender nor recipient is whitelisted");
+        require(owner() == _msgSender() || whitelist[sender] || whitelist[recipient], "TokenPoweredByCapx: neither sender nor recipient is whitelisted");
         _;
     }
 
     modifier onlyAuthorized() {
-        require(owner() == _msgSender() || authorized[_msgSender()],"CapxIOUToken: Caller NOT Authorized.");
+        require(owner() == _msgSender() || authorized[_msgSender()],"TokenPoweredByCapx: Caller NOT Authorized.");
         _;
     }
 
@@ -65,8 +65,8 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializabl
         address capxQuestForger_,
         uint256 totalCappedSupply_
     ) checkIsAddressValid(owner_) external {
-        require(!_initialized,"CapxIOUToken: Already Initialized.");
-        require(address(capxQuestForger_) != address(0),"CapxIOUToken: Invalid CapxQuestForger.");
+        require(!_initialized,"TokenPoweredByCapx: Already Initialized.");
+        require(address(capxQuestForger_) != address(0),"TokenPoweredByCapx: Invalid CapxQuestForger.");
         _name = name_;
         _symbol = symbol_;
         _decimal = 18;
@@ -231,7 +231,7 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializabl
     function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
         address owner_ = _msgSender();
         uint256 currentAllowance = allowance(owner_, spender);
-        require(currentAllowance >= subtractedValue, "CapxIOUToken: Decreased allowance below zero");
+        require(currentAllowance >= subtractedValue, "TokenPoweredByCapx: Decreased allowance below zero");
         unchecked {
             _approve(owner_, spender, currentAllowance - subtractedValue);
         }
@@ -258,13 +258,13 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializabl
         address to,
         uint256 amount
     ) internal virtual whenNotPaused {
-        require(from != address(0), "CapxIOUToken: Transfer from the zero address");
-        require(to != address(0), "CapxIOUToken: Transfer to the zero address");
+        require(from != address(0), "TokenPoweredByCapx: Transfer from the zero address");
+        require(to != address(0), "TokenPoweredByCapx: Transfer to the zero address");
 
         _beforeTokenTransfer(from, to, amount);
 
         uint256 fromBalance = _balances[from];
-        require(fromBalance >= amount, "CapxIOUToken: Transfer amount exceeds balance");
+        require(fromBalance >= amount, "TokenPoweredByCapx: Transfer amount exceeds balance");
         unchecked {
             _balances[from] = fromBalance - amount;
         }
@@ -285,8 +285,8 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializabl
      * - `account` cannot be the zero address.
      */
     function _mint(address account, uint256 amount) internal virtual {
-        require(totalSupply() + amount <= maxTotalSupply(), "CapxIOUToken: Token cap exceeded");
-        require(account != address(0), "CapxIOUToken: Mint to the zero address");
+        require(totalSupply() + amount <= maxTotalSupply(), "TokenPoweredByCapx: Token cap exceeded");
+        require(account != address(0), "TokenPoweredByCapx: Mint to the zero address");
 
         _beforeTokenTransfer(address(0), account, amount);
 
@@ -309,12 +309,12 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializabl
      * - `account` must have at least `amount` tokens.
      */
     function _burn(address account, uint256 amount) internal virtual {
-        require(account != address(0), "CapxIOUToken: Burn from the zero address");
+        require(account != address(0), "TokenPoweredByCapx: Burn from the zero address");
 
         _beforeTokenTransfer(account, address(0), amount);
 
         uint256 accountBalance = _balances[account];
-        require(accountBalance >= amount, "CapxIOUToken: Burn amount exceeds balance");
+        require(accountBalance >= amount, "TokenPoweredByCapx: Burn amount exceeds balance");
         unchecked {
             _balances[account] = accountBalance - amount;
         }
@@ -343,8 +343,8 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializabl
         address spender,
         uint256 amount
     ) internal virtual {
-        require(owner_ != address(0), "CapxIOUToken: Approve from the zero address");
-        require(spender != address(0), "CapxIOUToken: Approve to the zero address");
+        require(owner_ != address(0), "TokenPoweredByCapx: Approve from the zero address");
+        require(spender != address(0), "TokenPoweredByCapx: Approve to the zero address");
 
         _allowances[owner_][spender] = amount;
         emit Approval(owner_, spender, amount);
@@ -365,7 +365,7 @@ contract CapxIOUToken is IERC20, IERC20Metadata, Ownable, Pausable, Initializabl
     ) internal virtual {
         uint256 currentAllowance = allowance(owner_, spender);
         if (currentAllowance != type(uint256).max) {
-            require(currentAllowance >= amount, "CapxIOUToken: Insufficient allowance");
+            require(currentAllowance >= amount, "TokenPoweredByCapx: Insufficient allowance");
             unchecked {
                 _approve(owner_, spender, currentAllowance - amount);
             }

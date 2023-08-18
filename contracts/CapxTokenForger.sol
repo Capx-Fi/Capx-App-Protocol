@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
-abstract contract IOUToken {
+abstract contract TokenPoweredByCapx {
     function initialize (
         string memory name_, 
         string memory symbol_,
@@ -18,14 +18,14 @@ abstract contract IOUToken {
     ) public virtual;
 }
 
-contract CapxIOUForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
+contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
 
-    address public capxIOUToken;
+    address public tokenPoweredByCapx;
     address public capxQuestForger;
-    mapping(address => bool) public capxIOUTokens;
+    mapping(address => bool) public tokensPoweredByCapx;
 
-    event NewCapxIOUToken (
-        address indexed capxIOUToken,
+    event NewTokenPoweredByCapx (
+        address indexed tokenPoweredByCapx,
         address indexed owner,
         string name,
         string symbol,
@@ -42,14 +42,14 @@ contract CapxIOUForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, Pa
 
     modifier checkIsAddressValid(address _address)
     {
-        require(_address != address(0), "CapxIOUForger: Invalid address");
-        require(_address == address(_address), "CapxIOUForger: Invalid address");
+        require(_address != address(0), "CapxTokenForger: Invalid address");
+        require(_address == address(_address), "CapxTokenForger: Invalid address");
         _;
     }
 
     function initialize(
-        address _capxIOUToken
-    ) external checkIsAddressValid(_capxIOUToken) initializer {
+        address _tokenPoweredByCapx
+    ) external checkIsAddressValid(_tokenPoweredByCapx) initializer {
         __Ownable_init();
         __Pausable_init();
         __ReentrancyGuard_init();
@@ -57,7 +57,7 @@ contract CapxIOUForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, Pa
 
         _transferOwnership(_msgSender());
 
-        capxIOUToken = _capxIOUToken;
+        tokenPoweredByCapx = _tokenPoweredByCapx;
     }
 
     /// @notice function to Pause smart contract.
@@ -70,10 +70,10 @@ contract CapxIOUForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, Pa
         _unpause();
     }
 
-    function updateCapxIOUToken(
-        address _capxIOUToken
-    ) external onlyOwner checkIsAddressValid(_capxIOUToken) whenNotPaused {
-        capxIOUToken = _capxIOUToken;
+    function updateTokenPoweredByCapx(
+        address _tokenPoweredByCapx
+    ) external onlyOwner checkIsAddressValid(_tokenPoweredByCapx) whenNotPaused {
+        tokenPoweredByCapx = _tokenPoweredByCapx;
     }
 
     function updateCapxQuestForger(
@@ -82,26 +82,26 @@ contract CapxIOUForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, Pa
         capxQuestForger = _capxQuestForger;
     }
 
-    function createIOUToken(
+    function createTokenPoweredByCapx(
         string memory name,
         string memory symbol,
         address _owner,
         uint256 totalCappedSupplyInWei
-    ) external onlyOwner checkIsAddressValid(_owner) nonReentrant() whenNotPaused virtual returns(address iouToken) {
+    ) external onlyOwner checkIsAddressValid(_owner) nonReentrant() whenNotPaused virtual returns(address _tokenPoweredByCapx) {
         require(capxQuestForger != address(0),"CapxQuestForger NOT configured.");
         require(totalCappedSupplyInWei != 0,"Token's Maximum Capped Supply cannot be ZERO");
-        iouToken = Clones.clone(capxIOUToken);
-        capxIOUTokens[iouToken] = true;
+        _tokenPoweredByCapx = Clones.clone(tokenPoweredByCapx);
+        tokensPoweredByCapx[_tokenPoweredByCapx] = true;
 
-        emit NewCapxIOUToken (
-            iouToken,
+        emit NewTokenPoweredByCapx (
+            _tokenPoweredByCapx,
             _owner,
             name,
             symbol,
             totalCappedSupplyInWei
         );
 
-        IOUToken(iouToken).initialize(
+        TokenPoweredByCapx(_tokenPoweredByCapx).initialize(
             name,
             symbol,
             _owner,
@@ -110,8 +110,8 @@ contract CapxIOUForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, Pa
         );
     }
 
-    function isCapxIOUToken(address iouToken) external view returns(bool) {
-        return capxIOUTokens[iouToken];
+    function isTokenPoweredByCapx(address _tokenPoweredByCapx) external view returns(bool) {
+        return tokensPoweredByCapx[_tokenPoweredByCapx];
     }
 
 }
