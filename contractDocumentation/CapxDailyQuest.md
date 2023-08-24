@@ -1,10 +1,10 @@
 # CapxDailyQuest
 
-The `CapxDailyQuest` contract inherited from `CapxQuest` contract, designed to handle daily quests within the Capx ecosystem. It provides additional functionalities specific to daily quests, such as managing quest fees and handling rewards on a daily basis.
+The `CapxDailyQuest` contract, inherited from the `CapxQuest` contract, is designed to handle daily quests within the Capx ecosystem. It provides additional functionalities specific to daily quests, such as managing quest fees and handling rewards on a daily basis.
 
 ## Overview
 
-The contract integrates with the OpenZeppelin's `SafeERC20` library for safe ERC20 token operations. It inherits from the `CapxQuest` contract, which provides the foundational quest functionalities.
+The contract integrates with OpenZeppelin's `SafeERC20` library for safe ERC20 token operations. It inherits from the `CapxQuest` contract, which provides foundational quest functionalities. Additionally, the contract utilizes ECDSA (Elliptic Curve Digital Signature Algorithm) for signature verification to ensure the authenticity of reward claims.
 
 ## Modifiers
 
@@ -22,8 +22,8 @@ constructor() {
 }
 ```
 
+**Description:**  
 This constructor disables the initializers, ensuring that the contract's initialization functions can only be called once.
-
 
 ### initialize
 
@@ -84,7 +84,7 @@ function claim(
 ```
 
 **Description:**  
-The `claim` function allows participants to claim their rewards for the daily quest. It ensures the validity of the claim and then disburses the rewards.
+The `claim` function allows participants to claim their rewards for the daily quest. It ensures the validity of the claim and then disburses the rewards. The function uses ECDSA to verify the provided signature against a known public key (or address in Ethereum's context). If the signature is valid, the claim is processed; otherwise, it's rejected.
 
 **Parameters:**
 
@@ -102,8 +102,8 @@ The `claim` function allows participants to claim their rewards for the daily qu
 3. The function checks if the maximum participants limit has been reached.
 4. It ensures that the `_receiver` hasn't already claimed the reward for the given timestamp.
 5. The function checks if the quest has started and if it's still active.
-6. It verifies the integrity of the `_messageHash` using the provided details.
-7. The function ensures that the signer of the `_messageHash` is the authorized `claimSignerAddress` from the `capxQuestForger`.
+6. **ECDSA Verification:** The function uses ECDSA to verify the integrity of the `_messageHash` using the provided `_signature`. This ensures that the claim was genuinely signed by the expected private key.
+7. The function ensures that the signer of the `_messageHash` (verified using ECDSA) is the authorized `claimSignerAddress` from the `capxQuestForger`.
 8. After all checks pass, the `_receiver` is marked as having claimed the reward for the given timestamp.
 9. The participant count is incremented.
 10. The rewards are calculated and then transferred to the `_receiver`.
@@ -185,7 +185,9 @@ Allows the contract owner or the fee receiver to withdraw any leftover rewards a
 ### isClaimed
 
 ```solidity
-function isClaimed(address _addressInScope, uint256 _timestamp) external view returns (bool);
+function isClaimed(address _addressInScope, uint256 _
+
+timestamp) external view returns (bool);
 ```
 
 **Description:**  

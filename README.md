@@ -76,7 +76,7 @@
 <img src="Images/Flowchart.png" width="200">
 
 2. **System Diagram**:
-
+   
 <img src="Images/System.png">
 
 3. **Sequence Diagram**:
@@ -97,3 +97,24 @@
 | CapxQuestForger       | [0x600793d86f15dc53bba14e8eEd90B5a9a7CB27CE](https://arbiscan.io/address/0x600793d86f15dc53bba14e8eEd90B5a9a7CB27CE) |
 | Deployer Address      | 0xB57c5E1c6d52e6e190bAD3cb363DAaF42728B7fd                                                                 |
 
+### Testnet Contract Deployment
+
+**Network**: Arbitrum Görli
+
+### Compiler Settings
+
+| Setting  | Value                                      |
+|----------|--------------------------------------------|
+| optimize | true                                       |
+| runs     | 200                                        |
+| version  | soljson-v0.8.18+commit.87f61d96.js         |
+
+### Contract Address
+
+| Contract Name       | Contract Address                                                   |
+|---------------------|--------------------------------------------------------------------|
+| TokenPoweredByCapx  | [0xD3cD2Fe92034865f11461352Ebc10da40d609573](https://testnet.arbiscan.io/address/0xD3cD2Fe92034865f11461352Ebc10da40d609573) |
+| CapxTokenForger     | [0x2a6bBf0b3e54523c1f9a6C47c7B86dc3fe1F4Bec](https://testnet.arbiscan.io/address/0x2a6bBf0b3e54523c1f9a6C47c7B86dc3fe1F4Bec) |
+| CapxBasicQuest      | [0x413CddB2668E647c45E9Ee006544Bf1a6FC5f7F5](https://testnet.arbiscan.io/address/0x413CddB2668E647c45E9Ee006544Bf1a6FC5f7F5) |
+| CapxDailyQuest      | [0x4Dee47C00c6571118fD7A2a9558BBc0B3e87bccc](https://testnet.arbiscan.io/address/0x4Dee47C00c6571118fD7A2a9558BBc0B3e87bccc) |
+| CapxQuestForger     | [0x53A1a151949A2a225a1d7dF0666091b0221e81F3](https://testnet.arbiscan.io/address/0x53A1a151949A2a225a1d7dF0666091b0221e81F3) |

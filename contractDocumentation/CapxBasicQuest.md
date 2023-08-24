@@ -102,8 +102,8 @@ Allows participants to claim their rewards for the basic quest.
 3. Checks if the maximum participants limit has been reached.
 4. Ensures the `_receiver` hasn't already claimed the reward.
 5. Validates the quest's status and timing.
-6. Verifies the integrity of the `_messageHash` using the provided details.
-7. Ensures the signer of the `_messageHash` is the authorized `claimSignerAddress` from the `capxQuestForger`.
+6. **ECDSA Verification:** Verifies the integrity of the `_messageHash` using the provided `_signature` to ensure that the claim was genuinely signed by the expected private key.
+7. Ensures the signer of the `_messageHash` (verified using ECDSA) is the authorized `claimSignerAddress` from the `capxQuestForger`.
 8. Marks the `_receiver` as having claimed the reward.
 9. Increments the participant count.
 10. Calculates and transfers the rewards to the `_receiver`.
