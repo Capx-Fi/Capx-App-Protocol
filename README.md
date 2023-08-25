@@ -71,9 +71,13 @@
 
 ## Architecture:
 
-1. **Flowchart**:
-   
-<img src="Images/Flowchart.png" width="200">
+1. **Flowcharts**:
+
+<img src="Images/TokenCreationFlow.png" width="200">
+
+<img src="Images/QuestCreationFlow.png">
+
+<img src="Images/QuestFlow.png">
 
 2. **System Diagram**:
    
