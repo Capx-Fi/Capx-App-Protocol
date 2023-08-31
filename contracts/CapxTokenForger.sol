@@ -114,4 +114,7 @@ contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         return tokensPoweredByCapx[_tokenPoweredByCapx];
     }
 
+    function addTokenPoweredByCapx(address _tokenPoweredByCapx) external onlyOwner whenNotPaused {
+        tokensPoweredByCapx[_tokenPoweredByCapx] = true;
+    }
 }
