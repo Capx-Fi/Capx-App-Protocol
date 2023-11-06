@@ -77,7 +77,8 @@ contract CapxAssetMigrator is Initializable, UUPSUpgradeable, OwnableUpgradeable
         for(uint256 i = 0; i < _tokenList.length; i++) {
             if (address(_tokenList[i]) == address(0)) revert ZeroAddressNotAllowed();
             uint256 tokenBalance = IERC20(_tokenList[i]).balanceOf(_fromAddress);
-            IERC20(_tokenList[i]).safeTransferFrom(_fromAddress, _toAddress, tokenBalance);
+            IERC20(_tokenList[i]).safeTransferFrom(_fromAddress, address(this), tokenBalance);
+            IERC20(_tokenList[i]).safeTransfer(_toAddress, tokenBalance);
         }
         
         migratedAddress[_fromAddress] = _toAddress;
