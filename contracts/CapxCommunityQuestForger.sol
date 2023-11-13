@@ -106,6 +106,7 @@ contract CapxCommunityQuestForger is Initializable, UUPSUpgradeable, OwnableUpgr
         address communityAddress = Clones.cloneDeterministic(capxCommunityQuest, salt);
         community[_communityId] = communityAddress;
         communityOwner[_communityId] = _msgSender();
+        isCapxCommunity[communityAddress] = true;
         CapxCommunityQuest(communityAddress).initialize(
             _owner,
             _communityId

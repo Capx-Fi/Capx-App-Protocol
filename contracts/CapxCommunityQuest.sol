@@ -139,7 +139,7 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         if(isCommunityQuest[_questId] == false) revert InvalidQuestId();
         if(isCommunityActive == false) revert CommunityNotActive();
         if(claimedUsers[_questId][_receiver][_timestamp] == true) revert AlreadyClaimed();
-        if(keccak256(abi.encodePacked(_receiver,_questId,_timestamp,_rewardAmountInWei)) != _messageHash) revert InvalidMessageHash();
+        if(keccak256(abi.encodePacked(_receiver,_communityQuestId,_timestamp,_rewardAmountInWei)) != _messageHash) revert InvalidMessageHash();
         if (recoverSigner(_messageHash, _signature) != capxCommunityQuestForger.claimSignerAddress()) revert InvalidSigner();
 
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
