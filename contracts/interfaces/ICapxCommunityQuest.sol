@@ -29,4 +29,6 @@ interface ICapxCommunityQuest {
         uint256 _timestamp,
         uint256 _rewardAmount
     ) external;
+
+    function transferOwnership(address newOwner) external;
 }

@@ -18,7 +18,6 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
 
     string public communityId;
     uint256 public communityQuestCount;
-    address public communityOwner;
     bool public isCommunityActive;
 
     ICapxCommunityQuestForger public capxCommunityQuestForger;
@@ -41,17 +40,18 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         bool active;
     }
 
-    modifier onlyAuthorized() {
-        require(_msgSender() == owner() || _msgSender() == communityOwner, "Not Authorized.");
-        _;
-    }
-
     function pause() external onlyOwner whenNotPaused {
         _pause();
     }
 
     function unPause() external onlyOwner whenPaused {
         _unpause();
+    }
+
+    function transferOwnership(address newOwner) public virtual override(OwnableUpgradeable, ICapxCommunityQuest) onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        capxCommunityQuestForger.updateCommunityOwner(owner(), newOwner);
+        _transferOwnership(newOwner);
     }
 
     function uintToStr(uint256 value) internal pure returns (string memory) {
@@ -83,12 +83,12 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         string memory _communityId
     ) public initializer {
         communityId = _communityId;
-        communityOwner = _owner;
         capxCommunityQuestForger = ICapxCommunityQuestForger(_msgSender());
         isCommunityActive = true;
 
         __Ownable_init();
         __Pausable_init();
+        _transferOwnership(_owner);
     }
 
     function createQuest(
@@ -180,7 +180,8 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         return currCapxQuest.rewardToken;
     }
 
-    function disableQuest(uint256 _questId) external nonReentrant onlyAuthorized {
+    function disableQuest(uint256 _questId) external nonReentrant onlyOwner {
+        if(isCommunityQuest[_questId] == false) revert InvalidQuestId();
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
         uint256 pendingRewards = currCapxQuest.totalRewardAmountInWei - currCapxQuest.claimedRewards;
         require(IERC20(currCapxQuest.rewardToken).balanceOf(address(this)) >= pendingRewards, "No Rewards to withdraw");
@@ -192,8 +193,8 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         IERC20(currCapxQuest.rewardToken).safeTransfer(_msgSender(),pendingRewards);
     }
 
-    function enableQuest(uint256 _questId) external nonReentrant onlyAuthorized {
-        
+    function enableQuest(uint256 _questId) external nonReentrant onlyOwner {
+        if(isCommunityQuest[_questId] == false) revert InvalidQuestId();
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
         uint256 pendingRewards = currCapxQuest.totalRewardAmountInWei - currCapxQuest.claimedRewards;
         IERC20(currCapxQuest.rewardToken).safeTransferFrom(_msgSender(),address(this),pendingRewards);
@@ -202,7 +203,8 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         lastKnownBalance[currCapxQuest.rewardToken]+=pendingRewards;
     }
 
-    function updateTotalRewards(uint256 _questId, uint256 _rewardAmount, uint256 _maxParticipants) external nonReentrant onlyAuthorized {
+    function updateTotalRewards(uint256 _questId, uint256 _rewardAmount, uint256 _maxParticipants) external nonReentrant onlyOwner {
+        if(isCommunityQuest[_questId] == false) revert InvalidQuestId();
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
         if(currCapxQuest.active == false) revert QuestNotActive();
 
@@ -227,20 +229,20 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
     function extendQuest(
         uint256 _questId,
         uint256 _endTime
-    ) external nonReentrant onlyAuthorized {
+    ) external nonReentrant onlyOwner {
         if (_endTime <= block.timestamp) revert InvalidEndTime();
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
         currCapxQuest.endTime = _endTime;
     }
 
-    function withdrawTokens(address[] memory tokens) external nonReentrant onlyAuthorized {
+    function withdrawTokens(address[] memory tokens) external nonReentrant onlyOwner {
         isCommunityActive = false;
         for(uint256 i = 0; i < tokens.length; i++) {
             IERC20(tokens[i]).safeTransfer(_msgSender(),IERC20(tokens[i]).balanceOf(address(this)));
         }
     }
 
-    function toggleCommunity() external onlyAuthorized {
+    function toggleCommunity() external onlyOwner {
         isCommunityActive = !isCommunityActive;
     }
 

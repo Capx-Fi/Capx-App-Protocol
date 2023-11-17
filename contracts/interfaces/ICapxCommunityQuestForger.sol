@@ -5,6 +5,7 @@ interface ICapxCommunityQuestForger {
     error ZeroAddressNotAllowed();
     error QuestNotActive();
     error QuestIdUsed();
+    error OwnerOwnsACommunity();
 
     event CapxCommunityQuestCreated(
         address indexed creator,
@@ -34,4 +35,9 @@ interface ICapxCommunityQuestForger {
     ) external;
 
     function claimSignerAddress() external view returns(address);
+
+    function updateCommunityOwner(
+        address _oldOwner,
+        address _newOwner
+    ) external;
 }

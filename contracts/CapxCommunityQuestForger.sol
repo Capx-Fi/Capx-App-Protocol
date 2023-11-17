@@ -35,7 +35,9 @@ contract CapxCommunityQuestForger is Initializable, UUPSUpgradeable, OwnableUpgr
     mapping(string => address) public isCapxCommunityQuest;
     mapping(address => bool) public isCapxCommunity;
     mapping(string => address) public community;
+    mapping(address => bool) private communityOwners;
     mapping(string => address) public communityOwner;
+    mapping(address => string) private communityAddresstoId;
     mapping(string => uint256) public communityQuestCount;
 
 
@@ -101,12 +103,15 @@ contract CapxCommunityQuestForger is Initializable, UUPSUpgradeable, OwnableUpgr
         string memory _communityId
     ) external onlyOwner whenNotPaused {
         if (_owner == address(0)) revert ZeroAddressNotAllowed();
+        if (communityOwners[_owner] == true) revert OwnerOwnsACommunity();
         require(community[_communityId] == address(0), "Community Already Exists");
         bytes32 salt = keccak256(abi.encodePacked(_communityId));
         address communityAddress = Clones.cloneDeterministic(capxCommunityQuest, salt);
         community[_communityId] = communityAddress;
-        communityOwner[_communityId] = _msgSender();
+        communityOwner[_communityId] = _owner;
+        communityOwners[_owner] = true;
         isCapxCommunity[communityAddress] = true;
+        communityAddresstoId[communityAddress] = _communityId;
         CapxCommunityQuest(communityAddress).initialize(
             _owner,
             _communityId
@@ -205,5 +210,16 @@ contract CapxCommunityQuestForger is Initializable, UUPSUpgradeable, OwnableUpgr
     function setCapxCommunityQuestAddress(address _capxCommunityQuestAddress) public onlyOwner {
         if (_capxCommunityQuestAddress == address(0)) revert ZeroAddressNotAllowed();
         capxCommunityQuest = _capxCommunityQuestAddress;
+    }
+
+    function updateCommunityOwner(
+        address _oldOwner,
+        address _newOwner
+    ) external {
+        require(isCapxCommunity[_msgSender()],"NOT Capx Quest");
+        string memory communityId = communityAddresstoId[_msgSender()];
+        communityOwners[_oldOwner] = false;
+        communityOwners[_newOwner] = true;
+        communityOwner[communityId] = _newOwner;
     }
 }
