@@ -48,7 +48,7 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         _unpause();
     }
 
-    function transferOwnership(address newOwner) public virtual override(OwnableUpgradeable, ICapxCommunityQuest) onlyOwner {
+    function transferOwnership(address newOwner) public virtual override(OwnableUpgradeable) onlyOwner {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
         capxCommunityQuestForger.updateCommunityOwner(owner(), newOwner);
         _transferOwnership(newOwner);
