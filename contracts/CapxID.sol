@@ -17,11 +17,18 @@ contract CapxID is ERC721, Ownable, Pausable, ERC721Enumerable {
         uint256 reputationScore;
     }
 
+    event CapxIDMint(
+        address user,
+        string username,
+        uint256 mintID
+    );
+
     string public baseURI;
     bool private revealURI;
     address public authorizedMinter;
 
     mapping(address => CapxIDMetadata) public capxIDMetadata;
+    mapping(string => uint256) public capxID;
     mapping(address => bool) public whitelist;
     mapping(address => bool) public authorized;
     mapping(uint256 => string) private tokenURIs; 
@@ -87,7 +94,15 @@ contract CapxID is ERC721, Ownable, Pausable, ERC721Enumerable {
         _metadata.reputationScore = 100_00;
         _metadata.username = _username;
         tokenURIs[tokenId] = _tokenURI;
+        capxID[_username] = tokenId;
+
         _safeMint(_msgSender(), tokenId);
+
+        emit CapxIDMint(
+            _msgSender(),
+            _username,
+            tokenId
+        );
     }
 
     function burn(
@@ -193,5 +208,11 @@ contract CapxID is ERC721, Ownable, Pausable, ERC721Enumerable {
         onlyWhitelisted(_from,_to)
     {
         super.transferFrom(_from,_to, _tokenId);
+    }
+
+    function getCapxIDMetadata(string calldata _username) public view returns(CapxIDMetadata memory) {
+        uint256 tokenID = capxID[_username];
+        address tokenOwner = ownerOf(tokenID);
+        return capxIDMetadata[tokenOwner];
     }
 }
