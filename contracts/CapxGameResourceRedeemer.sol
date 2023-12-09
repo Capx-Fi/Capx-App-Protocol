@@ -33,11 +33,14 @@ contract CapxGameResourceRedeemer is Ownable, Pausable, ReentrancyGuard {
         authorizedSigner = _authorizedSigner;
     }
 
-    function updateContractAddresses(
-        address _capxGameResource,
-        address _capxNFT
-    ) external onlyOwner {
+    function updateGameResourceContractAddress(address _capxGameResource)
+        external
+        onlyOwner
+    {
         capxGameResource = ICapxGameResource(_capxGameResource);
+    }
+
+    function updateNFTContractAddress(address _capxNFT) external onlyOwner {
         capxNFT = ICapxNFT(_capxNFT);
     }
 
@@ -98,8 +101,7 @@ contract CapxGameResourceRedeemer is Ownable, Pausable, ReentrancyGuard {
     function redeemLootbox(
         bytes32 _messageHash,
         bytes memory _signature,
-        bytes calldata encodedResourceData,
-        bool isNft
+        bytes calldata redemptionData
     ) external nonReentrant {
         require(
             address(capxGameResource) != address(0),
@@ -110,47 +112,65 @@ contract CapxGameResourceRedeemer is Ownable, Pausable, ReentrancyGuard {
             "CapxRedemption: NFT contract address is not set"
         );
 
-        if (!isNft) {
-            (uint256[] memory _resources, uint256[] memory _amounts) = abi
-                .decode(encodedResourceData, (uint256[], uint256[]));
-            require(
-                keccak256   (
-                    abi.encodePacked(_msgSender(), _resources, _amounts)
-                ) == _messageHash,
-                "CapxRedemption: Invalid MessageHash"
-            );
+        require(
+            keccak256(abi.encodePacked(_msgSender(), redemptionData)) ==
+                _messageHash,
+            "CapxRedemption: Invalid MessageHash"
+        );
 
-            require(
-                recoverSigner(_messageHash, _signature) == authorizedSigner,
-                "CapxRedemption: Invalid Signer"
-            );
+        require(
+            recoverSigner(_messageHash, _signature) == authorizedSigner,
+            "CapxRedemption: Invalid Signer"
+        );
 
-            uint256 resourcesRedeemedLootBoxID = capxGameResource.burnLootbox(_msgSender());
+        (
+            uint256[] memory _resources,
+            uint256[] memory _amounts,
+            bool isNFT
+        ) = abi.decode(redemptionData, (uint256[], uint256[], bool));
+        
+        if (!isNFT) {
+            uint256 resourcesRedeemedLootBoxID = capxGameResource.burnLootbox(
+                _msgSender()
+            );
 
             capxGameResource.redeemResources(
                 _msgSender(),
                 _resources,
                 _amounts
             );
-            
-            emit CapxLootBoxRedeemedResource(_msgSender(), resourcesRedeemedLootBoxID, _resources, _amounts);
+
+            emit CapxLootBoxRedeemedResource(
+                _msgSender(),
+                resourcesRedeemedLootBoxID,
+                _resources,
+                _amounts
+            );
 
             return;
         }
 
-        require(
-            keccak256(abi.encodePacked(_msgSender())) == _messageHash,
-            "CapxRedemption: Invalid MessageHash"
-        );
-        require(
-            recoverSigner(_messageHash, _signature) == authorizedSigner,
-            "CapxRedemption: Invalid Signer"
+        uint256 NFTRedeemedLootboxID = capxGameResource.burnLootbox(
+            _msgSender()
         );
 
-        uint256 NFTRedeemedLootboxID = capxGameResource.burnLootbox(_msgSender());
-        
-        uint256 capxNftId = capxNFT.mint(_msgSender());
+        uint256 capxNFTID = capxNFT.mint(_msgSender());
 
-        emit CapxLootBoxRedeemedNFT(_msgSender(), NFTRedeemedLootboxID, capxNftId);
+        emit CapxLootBoxRedeemedNFT(
+            _msgSender(),
+            NFTRedeemedLootboxID,
+            capxNFTID
+        );
+    }
+
+    function updateAuthorizedSigner(address _authorizedSigner)
+        external
+        onlyOwner
+    {
+        require(
+            _authorizedSigner != address(0),
+            "CapxResource: ZeroAddress NOT Allowed"
+        );
+        authorizedSigner = _authorizedSigner;
     }
 }
