@@ -26,6 +26,7 @@ contract CapxID is ERC721, Ownable, Pausable, ERC721Enumerable {
     string public baseURI;
     bool private revealURI;
     address public authorizedMinter;
+    uint256 public REPUTATION_SCORE;
 
     mapping(address => CapxIDMetadata) public capxIDMetadata;
     mapping(string => uint256) public capxID;
@@ -49,6 +50,7 @@ contract CapxID is ERC721, Ownable, Pausable, ERC721Enumerable {
         address _authorizedMinter
     ) ERC721(_name, _symbol) {
         require(_authorizedMinter != address(0),"CapxID: ZeroAddress NOT Allowed");
+        REPUTATION_SCORE = 69;
         authorizedMinter = _authorizedMinter;
     }
 
@@ -85,13 +87,14 @@ contract CapxID is ERC721, Ownable, Pausable, ERC721Enumerable {
         string memory _username,
         string memory _tokenURI
     ) external {
+        require(capxID[_username] == 0, "CapxID: Username has already minted");
         CapxIDMetadata storage _metadata = capxIDMetadata[_msgSender()];
         require(_metadata.mintID == 0, "CapxID: User has already minted");
         require(keccak256(abi.encodePacked(_username,_tokenURI)) == _messageHash, "CapxID: Invalid MessageHash");
         require(recoverSigner(_messageHash, _signature) == authorizedMinter,"CapxID: Invalid Minter");
         uint256 tokenId = totalSupply() + 1;
         _metadata.mintID = tokenId;
-        _metadata.reputationScore = 100_00;
+        _metadata.reputationScore = REPUTATION_SCORE;
         _metadata.username = _username;
         tokenURIs[tokenId] = _tokenURI;
         capxID[_username] = tokenId;
@@ -100,6 +103,30 @@ contract CapxID is ERC721, Ownable, Pausable, ERC721Enumerable {
 
         emit CapxIDMint(
             _msgSender(),
+            _username,
+            tokenId
+        );
+    }
+
+    function adminMint(
+        address _holder,
+        string memory _username,
+        string memory _tokenURI
+    ) external onlyOwner {
+        require(capxID[_username] == 0, "CapxID: Username has already minted");
+        CapxIDMetadata storage _metadata = capxIDMetadata[_holder];
+        require(_metadata.mintID == 0, "CapxID: User has already minted");
+        uint256 tokenId = totalSupply() + 1;
+        _metadata.mintID = tokenId;
+        _metadata.reputationScore = REPUTATION_SCORE;
+        _metadata.username = _username;
+        tokenURIs[tokenId] = _tokenURI;
+        capxID[_username] = tokenId;
+
+        _safeMint(_holder, tokenId);
+
+        emit CapxIDMint(
+            _holder,
             _username,
             tokenId
         );
@@ -166,6 +193,21 @@ contract CapxID is ERC721, Ownable, Pausable, ERC721Enumerable {
         require(_exists(_tokenId), "CapxID: Token does not exist");
         CapxIDMetadata storage _metadata = capxIDMetadata[_ownerOf(_tokenId)];
         _metadata.reputationScore = _reputationScore;
+    }
+
+    function updateUsername(uint256 _tokenId, string memory _username) public onlyAuthorized {
+        require(_exists(_tokenId), "CapxID: Token does not exist");
+        CapxIDMetadata storage _metadata = capxIDMetadata[_ownerOf(_tokenId)];
+        _metadata.username = _username;
+    }
+
+    function configReputationScore(uint256 _reputationScore) public onlyOwner {
+        REPUTATION_SCORE = _reputationScore;
+    }
+
+    function setAuthorizedMinterAddress(address _authorizedMinter) public onlyOwner {
+        require(_authorizedMinter != address(0),"CapxID: ZeroAddress NOT Allowed");
+        authorizedMinter = _authorizedMinter;
     }
 
     function supportsInterface(bytes4 _interfaceId)
