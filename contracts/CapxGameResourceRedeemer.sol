@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {ICapxGameResource} from "contracts/interfaces/ICapxGameResource.sol";
 import {ICapxNFT} from "contracts/interfaces/ICapxNFT.sol";
 
-contract CapxGameResourceRedeemer is Ownable, Pausable, ReentrancyGuard {
+contract CapxGameResourceRedeemer is
+    Initializable,
+    OwnableUpgradeable,
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
     ICapxGameResource public capxGameResource;
     ICapxNFT public capxNFT;
 
@@ -29,7 +37,18 @@ contract CapxGameResourceRedeemer is Ownable, Pausable, ReentrancyGuard {
         uint256 capxNftID
     );
 
-    constructor(address _authorizedSigner) {
+    constructor() initializer {}
+
+    function _authorizeUpgrade(address _newImplementation)
+        internal
+        override
+        onlyOwner
+    {}
+
+    function initialize(address _authorizedSigner) public initializer {
+        __Ownable_init();
+        __Pausable_init();
+        __ReentrancyGuard_init();
         authorizedSigner = _authorizedSigner;
     }
 
@@ -128,7 +147,7 @@ contract CapxGameResourceRedeemer is Ownable, Pausable, ReentrancyGuard {
             uint256[] memory _amounts,
             bool isNFT
         ) = abi.decode(redemptionData, (uint256[], uint256[], bool));
-        
+
         if (!isNFT) {
             uint256 resourcesRedeemedLootBoxID = capxGameResource.burnLootbox(
                 _msgSender()
