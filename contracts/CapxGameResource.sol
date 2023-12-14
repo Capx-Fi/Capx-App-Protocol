@@ -23,6 +23,7 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
     uint256 public maxLootboxes = 1000000;
     uint256 public maxResourcesPerMint = 12; // Max amount of resources that can be minted together.
     uint256 public maxRedeemResourcesPerMint = 2; // Max amount of resources that can be redeemed
+    uint256 public maxLootboxesTransferable = 3; // Max amount of lootboxes that user can transfer.
 
     mapping(address => uint256[]) public lootBoxIDs;
     mapping(address => uint256) public userRedeemedLootBox;
@@ -242,8 +243,12 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
         return redeemedLootboxId;
     }
 
-    function updateMaxLootbox(uint256 newMaxLootBoxes) external onlyOwner {
-        maxLootboxes = newMaxLootBoxes;
+    function updateMaxLootbox(uint256 _maxLootboxes) external onlyOwner {
+        require(
+            _maxLootboxes > 0,
+            "CapxResource: max lootboxes has to be greater than 0"
+        );
+        maxLootboxes = _maxLootboxes;
     }
 
     function updateMaxResourcesPerMint(uint256 _maxResourcesPerMint)
@@ -252,7 +257,7 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
     {
         require(
             _maxResourcesPerMint > 0,
-            "CapxResource: max redeem resources per mint has to be greater than 0"
+            "CapxResource: max resources per mint has to be greater than 0"
         );
         maxResourcesPerMint = _maxResourcesPerMint;
     }
@@ -268,16 +273,33 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
         maxRedeemResourcesPerMint = _maxRedeemResourcesPerMint;
     }
 
+    function updateMaxLootboxesTransferable(uint256 _maxLootboxesTransferable)
+        external
+        onlyOwner
+    {
+        require(
+            _maxLootboxesTransferable > 0,
+            "CapxResource: max lootboxes transferable has to be greater than 0"
+        );
+        maxLootboxesTransferable = _maxLootboxesTransferable;
+    }
+
     function updateMineInterval(uint256 _mineInterval) external onlyOwner {
         mineInterval = _mineInterval;
     }
 
-    function _performLootboxTransfer(address from, address to) internal {
-        uint256 lootboxIndexPointer = userRedeemedLootBox[from];
-        uint256 redeemedLootboxId = lootBoxIDs[from][lootboxIndexPointer];
-        lootBoxIDs[to].push(redeemedLootboxId);
-
-        userRedeemedLootBox[from] += 1;
+    function _performLootboxTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal {
+        for (uint256 i = 0; i < amount; i++) {
+            uint256 redeemedLootboxId = lootBoxIDs[from][
+                userRedeemedLootBox[from] + i
+            ];
+            lootBoxIDs[to].push(redeemedLootboxId);
+        }
+        userRedeemedLootBox[from] += amount;
     }
 
     function safeBatchTransferFrom(
@@ -292,6 +314,7 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
             "CapxResource: Resources and amounts must have the same length"
         );
         bool isLootBoxTransfer;
+        uint256 lootBoxIndexPointer;
         for (
             uint256 resourceId = 0;
             resourceId < resources.length;
@@ -303,19 +326,22 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
                 "CapxResource: Invalid resource ID"
             );
             if (resources[resourceId] == LOOTBOX) {
+                lootBoxIndexPointer = resourceId;
                 isLootBoxTransfer = true;
                 require(
-                    amounts[resourceId] == 1,
-                    "CapxResource: Only 1 lootbox can be transferred."
+                    amounts[lootBoxIndexPointer] > 0 &&
+                        amounts[lootBoxIndexPointer] <=
+                        maxLootboxesTransferable,
+                    "CapxResource: lootbox amount has exceeded the max tranferable amount."
                 );
             }
         }
 
-        super.safeBatchTransferFrom(from, to, resources, amounts, data);
-
         if (isLootBoxTransfer) {
-            _performLootboxTransfer(from, to);
+            _performLootboxTransfer(from, to, amounts[lootBoxIndexPointer]);
         }
+
+        super.safeBatchTransferFrom(from, to, resources, amounts, data);
     }
 
     function safeTransferFrom(
@@ -332,16 +358,15 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
 
         if (resource == LOOTBOX) {
             require(
-                amount == 1,
-                "CapxResource: Only 1 lootbox can be transferred."
+                amount > 0 && amount <= maxLootboxesTransferable,
+                "CapxResource: lootbox amount has exceeded the max tranferable amount."
             );
+            
+            _performLootboxTransfer(from, to, amount);
         }
+
 
         super.safeTransferFrom(from, to, resource, amount, data);
-
-        if (resource == LOOTBOX) {
-            _performLootboxTransfer(from, to);
-        }
     }
 
     function updateAuthorizedMinter(address _authorizedMinter)
