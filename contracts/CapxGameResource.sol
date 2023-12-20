@@ -22,7 +22,6 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
     mapping(address => uint256) public userRedeemedLootBox;
     mapping(address => uint256) public unclaimedLootboxes;
 
-
     address public authorizedMinter;
 
     string public baseURI;
@@ -214,6 +213,18 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
         userRedeemedLootBox[_msgSender()] += 1;
         _burn(player, LOOTBOX, 1);
         return redeemedLootboxId;
+    }
+
+    function retrieveLootboxIdforUser(address player)
+        external
+        view
+        returns (uint256)
+    {
+        uint256 lootboxIndexPointer = userRedeemedLootBox[player];
+        // CapxResource: No more lootboxes to redeem.
+        if (lootboxIndexPointer < lootBoxIDs[player].length)
+            return lootBoxIDs[player][lootboxIndexPointer];
+        return 0;
     }
 
     function updateMaxRedeemResourcesPerMint(uint256 _maxRedeemResourcesPerMint)
