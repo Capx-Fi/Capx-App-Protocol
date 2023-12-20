@@ -28,25 +28,29 @@ contract CapxGameResourceRedeemer is
     ICapxNFT public capxNFT;
     IERC20 public capxToken;
 
-    struct LootBoxCounts {
+    struct LootboxTypes {
         uint256 resources;
         uint256 nfts;
-        uint256 capxTokens;
+        mapping(uint256 => uint256) capxTokens;
         uint256 quantity; // Quantity of the lootboxes
     }
 
     uint256 public constant LOOTBOX = 5;
 
-    LootBoxCounts public lootBoxMinted;
+    LootboxTypes public lootBoxMinted;
 
     mapping(address => mapping(uint256 => bool)) private craftedLootboxes;
-    mapping(address => mapping(uint256 => mapping(uint256 => bool)))
+    mapping(address => mapping(uint256 => mapping(uint256 => uint256)))
         private minedResources;
-    mapping(address => mapping(uint256 => bool)) private redeemedLootboxes;
+    mapping(address => mapping(uint256 => uint256)) private redeemedLootboxes;
+
+    mapping(address => uint256) public userCraftedLootboxes;
 
     uint256 public maxResourcesLootboxes = 4600000;
     uint256 public maxNFTLootboxes = 10000;
-    uint256 public maxCapxTokensLootboxes = 390000;
+
+    mapping(uint256 => uint256) private capxTokenCaps;
+    uint256[] public capxTokenAmounts; // Array to store different token amounts [ 2, 3, 5, 10]
 
     address public authorizedSigner;
 
@@ -122,6 +126,22 @@ contract CapxGameResourceRedeemer is
         return ECDSA.recover(messageDigest, signature);
     }
 
+    function initializeCapxTokenCaps(
+        uint256[] memory _tokenAmounts,
+        uint256[] memory _caps
+    ) external onlyOwner {
+        require(
+            _tokenAmounts.length == _caps.length,
+            "CapxRedemption: Element length of tokenAmounts must match length of caps"
+        );
+
+        capxTokenAmounts = _tokenAmounts;
+
+        for (uint256 i = 0; i < _tokenAmounts.length; i++) {
+            capxTokenCaps[_tokenAmounts[i]] = _caps[i];
+        }
+    }
+
     function mineResource(
         bytes32 _messageHash,
         bytes memory _signature,
@@ -135,7 +155,7 @@ contract CapxGameResourceRedeemer is
         );
 
         require(
-            !minedResources[_msgSender()][resource][mineTimeStamp],
+            minedResources[_msgSender()][resource][mineTimeStamp] != 0,
             "CapxRedemption: User has already claimed the resource."
         );
 
@@ -150,7 +170,7 @@ contract CapxGameResourceRedeemer is
             "CapxRedemption: Invalid Signer"
         );
 
-        minedResources[_msgSender()][resource][mineTimeStamp] = true;
+        minedResources[_msgSender()][resource][mineTimeStamp] = amount;
 
         capxGameResource.mineResource(
             _msgSender(),
@@ -161,63 +181,30 @@ contract CapxGameResourceRedeemer is
     }
 
     // Burns the resources.
-    function craftLootbox(
-        bytes32 _messageHash,
-        bytes memory _signature,
-        uint256 _timestamp
-    ) external nonReentrant {
+    function forgeLootbox() external nonReentrant {
         require(
             address(capxGameResource) != address(0),
             "CapxRedemption: Game resource contract address is not set"
         );
 
-        require(
-            !craftedLootboxes[_msgSender()][_timestamp],
-            "CapxRedemption: User has already crafted the lootbox."
-        );
+        userCraftedLootboxes[_msgSender()] += 1;
 
-        require(
-            keccak256(abi.encodePacked(_msgSender(), _timestamp)) ==
-                _messageHash,
-            "CapxRedemption: Invalid MessageHash"
-        );
-        require(
-            recoverSigner(_messageHash, _signature) == authorizedSigner,
-            "CapxRedemption: Invalid Signer"
-        );
-
-        craftedLootboxes[_msgSender()][_timestamp] = true;
-
-        capxGameResource.craftLootbox(_msgSender());
+        capxGameResource.forgeLootbox(_msgSender());
     }
 
     // Mints the lootbox.
-    function mintLootbox(
-        bytes32 _messageHash,
-        bytes memory _signature,
-        uint256 _timestamp
-    ) external nonReentrant {
+    function mintLootbox() external nonReentrant {
         require(
             lootBoxMinted.quantity + 1 <= maxLootboxes(),
             "CapxRedemption: Max cap for crafting lootboxes has reached."
         );
-
         require(
-            !minedResources[_msgSender()][LOOTBOX][_timestamp],
-            "CapxRedemption: User has already minted the lootbox."
+            userCraftedLootboxes[_msgSender()] > 0,
+            "CapxRedemption: User has not forged lootboxes"
         );
 
-        require(
-            keccak256(abi.encodePacked(_msgSender(), _timestamp)) ==
-                _messageHash,
-            "CapxRedemption: Invalid MessageHash"
-        );
-        require(
-            recoverSigner(_messageHash, _signature) == authorizedSigner,
-            "CapxRedemption: Invalid Signer"
-        );
+        userCraftedLootboxes[_msgSender()] -= 1;
 
-        minedResources[_msgSender()][LOOTBOX][_timestamp] = true;
         lootBoxMinted.quantity += 1;
         capxGameResource.mintLootbox(_msgSender(), lootBoxMinted.quantity);
     }
@@ -239,7 +226,7 @@ contract CapxGameResourceRedeemer is
         );
 
         require(
-            !redeemedLootboxes[_msgSender()][_timestamp],
+            redeemedLootboxes[_msgSender()][_timestamp] != 0,
             "CapxRedemption: User has already redeemed the lootbox."
         );
 
@@ -265,6 +252,10 @@ contract CapxGameResourceRedeemer is
                 (uint256[], uint256[], uint256, uint256)
             );
 
+        uint256 redeemedLootboxID = capxGameResource.burnLootbox(_msgSender());
+
+        redeemedLootboxes[_msgSender()][_timestamp] = redeemedLootboxID;
+
         if (_lootBoxType == 1) {
             require(
                 address(capxNFT) != address(0),
@@ -278,15 +269,11 @@ contract CapxGameResourceRedeemer is
 
             lootBoxMinted.nfts += 1;
 
-            uint256 NFTRedeemedLootboxID = capxGameResource.burnLootbox(
-                _msgSender()
-            );
-
             uint256 capxNFTID = capxNFT.mint(_msgSender());
 
             emit CapxLootBoxRedeemedNFT(
                 _msgSender(),
-                NFTRedeemedLootboxID,
+                redeemedLootboxID,
                 capxNFTID
             );
             return;
@@ -297,23 +284,20 @@ contract CapxGameResourceRedeemer is
             );
 
             require(
-                lootBoxMinted.capxTokens + 1 <= maxCapxTokensLootboxes,
-                "CapxRedemption: Max cap for redeeming Capx Tokens has reached."
+                lootBoxMinted.capxTokens[_capxTokenAmount] + 1 <=
+                    capxTokenCaps[_capxTokenAmount],
+                "CapxRedemption: Lootboxes for the token amount are exhausted"
             );
+
+            lootBoxMinted.capxTokens[_capxTokenAmount] += 1;
 
             require(IERC20(capxToken).approve(_msgSender(), _capxTokenAmount));
-
-            lootBoxMinted.capxTokens += 1;
-
-            uint256 TokensRedeemedLootboxID = capxGameResource.burnLootbox(
-                _msgSender()
-            );
 
             IERC20(capxToken).safeTransfer(_msgSender(), _capxTokenAmount);
 
             emit CapxLootBoxRedeemedTokens(
                 _msgSender(),
-                TokensRedeemedLootboxID,
+                redeemedLootboxID,
                 _capxTokenAmount
             );
             return;
@@ -330,10 +314,6 @@ contract CapxGameResourceRedeemer is
 
             lootBoxMinted.resources += 1;
 
-            uint256 resourcesRedeemedLootBoxID = capxGameResource.burnLootbox(
-                _msgSender()
-            );
-
             capxGameResource.redeemResources(
                 _msgSender(),
                 _resources,
@@ -342,7 +322,7 @@ contract CapxGameResourceRedeemer is
 
             emit CapxLootBoxRedeemedResource(
                 _msgSender(),
-                resourcesRedeemedLootBoxID,
+                redeemedLootboxID,
                 _resources,
                 _amounts
             );
@@ -362,9 +342,12 @@ contract CapxGameResourceRedeemer is
     }
 
     function maxLootboxes() internal view returns (uint256) {
-        uint256 _maxLootboxes = maxResourcesLootboxes +
-            maxCapxTokensLootboxes +
-            maxNFTLootboxes;
+        uint256 _maxLootboxes = maxResourcesLootboxes + maxNFTLootboxes;
+
+        for (uint256 i = 0; i < capxTokenAmounts.length; i++) {
+            _maxLootboxes += capxTokenCaps[capxTokenAmounts[i]];
+        }
+
         return _maxLootboxes;
     }
 
@@ -390,14 +373,18 @@ contract CapxGameResourceRedeemer is
         maxNFTLootboxes = _maxNFTLootboxes;
     }
 
-    function updateMaxCapxTokensLootboxes(uint256 _maxCapxTokensLootboxes)
+    function updateCapxTokenCap(uint256 tokenAmount, uint256 newCap)
         external
         onlyOwner
     {
-        require(
-            _maxCapxTokensLootboxes > 0,
-            "CapxRedemption: Max Capx tokens lootboxes cannot be less than 0"
-        );
-        maxCapxTokensLootboxes = _maxCapxTokensLootboxes;
+        capxTokenCaps[tokenAmount] = newCap;
+    }
+
+    function getUserMinedResources(
+        address miner,
+        uint256 resourceId,
+        uint256 timestamp
+    ) external view returns (uint256 amount) {
+        return minedResources[miner][resourceId][timestamp];
     }
 }

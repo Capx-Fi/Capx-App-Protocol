@@ -15,11 +15,13 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
     uint256 public constant CHEMICAL_X = 4;
     uint256 public constant LOOTBOX = 5;
 
-    uint256 public maxResourcesPerMint = 12; // Max amount of resources that can be minted together.
+    uint256 public maxRedeemResourcesPerMint = 12; // Max amount of resources that can be minted together.
     uint256 public maxLootboxesTransferable = 3; // Max amount of lootboxes that user can transfer.
 
     mapping(address => uint256[]) public lootBoxIDs;
     mapping(address => uint256) public userRedeemedLootBox;
+    mapping(address => uint256) public unclaimedLootboxes;
+
 
     address public authorizedMinter;
 
@@ -34,7 +36,7 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
     );
 
     // Event for emitting craftLootbox
-    event CapxLootboxForged(address player, uint256 lootboxID);
+    event CapxLootboxMinted(address player, uint256 lootboxID);
 
     modifier onlyAuthorized() {
         require(
@@ -103,7 +105,7 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
     }
 
     // Burns the resources.
-    function craftLootbox(address player)
+    function forgeLootbox(address player)
         external
         onlyAuthorized
         whenNotPaused
@@ -152,10 +154,10 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
 
         _mint(player, LOOTBOX, 1, "");
 
-        emit CapxLootboxForged(player, lootboxId);
+        emit CapxLootboxMinted(player, lootboxId);
     }
 
-    // Redeems the resources. 
+    // Redeems the resources.
     function redeemResources(
         address player,
         uint256[] memory resources,
@@ -166,13 +168,20 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
             "CapxResource: Invalid length of resources or amount provided"
         );
 
+        uint256 totalAmount = 0;
 
         for (uint256 i = 0; i < 4; i++) {
             require(
                 resources[i] >= SHITCOIN && resources[i] <= CHEMICAL_X,
                 "CapxResource: Invalid resource ID"
             );
+            totalAmount += amounts[i];
         }
+
+        require(
+            totalAmount <= maxRedeemResourcesPerMint,
+            "CapxResource: Exceeds max redeem resources per mint"
+        );
 
         _mintBatch(player, resources, amounts, "");
     }
@@ -207,15 +216,15 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
         return redeemedLootboxId;
     }
 
-    function updateMaxResourcesPerMint(uint256 _maxResourcesPerMint)
+    function updateMaxRedeemResourcesPerMint(uint256 _maxRedeemResourcesPerMint)
         external
         onlyOwner
     {
         require(
-            _maxResourcesPerMint > 0,
+            _maxRedeemResourcesPerMint > 0,
             "CapxResource: max resources per mint has to be greater than 0"
         );
-        maxResourcesPerMint = _maxResourcesPerMint;
+        maxRedeemResourcesPerMint = _maxRedeemResourcesPerMint;
     }
 
     function updateMaxLootboxesTransferable(uint256 _maxLootboxesTransferable)
