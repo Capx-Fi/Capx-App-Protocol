@@ -30,11 +30,13 @@ contract CapxGameResourceRedeemer is
         uint256 resources;
         uint256 nfts;
         mapping(uint256 => uint256) capxTokens;
-        uint256 quantity; // Quantity of the lootboxes
     }
 
 
-    LootboxTypes public lootBoxMinted;
+    LootboxTypes public lootboxesRedeemed;
+    
+    uint256 public lootboxesMinted;
+
 
     mapping(address => mapping(uint256 => mapping(uint256 => uint256)))
         private minedResources;
@@ -192,7 +194,7 @@ contract CapxGameResourceRedeemer is
     // Mints the lootbox.
     function mintLootbox() external nonReentrant {
         require(
-            lootBoxMinted.quantity + 1 <= maxLootboxes(),
+            lootboxesMinted + 1 <= maxLootboxes(),
             "CapxRedemption: Max cap for crafting lootboxes has reached."
         );
         require(
@@ -202,8 +204,8 @@ contract CapxGameResourceRedeemer is
 
         userCraftedLootboxes[_msgSender()] -= 1;
 
-        lootBoxMinted.quantity += 1;
-        capxGameResource.mintLootbox(_msgSender(), lootBoxMinted.quantity);
+        lootboxesMinted += 1;
+        capxGameResource.mintLootbox(_msgSender(), lootboxesMinted);
     }
 
     // Reveals the lootbox.
@@ -262,11 +264,11 @@ contract CapxGameResourceRedeemer is
             );
 
             require(
-                lootBoxMinted.nfts + 1 <= maxNFTLootboxes,
+                lootboxesRedeemed.nfts + 1 <= maxNFTLootboxes,
                 "CapxRedemption: Max cap for redeeming NFT has reached."
             );
 
-            lootBoxMinted.nfts += 1;
+            lootboxesRedeemed.nfts += 1;
 
             uint256 capxNFTID = capxNFT.mint(_msgSender());
 
@@ -283,12 +285,12 @@ contract CapxGameResourceRedeemer is
             );
 
             require(
-                lootBoxMinted.capxTokens[_capxTokenAmount] + 1 <=
+                lootboxesRedeemed.capxTokens[_capxTokenAmount] + 1 <=
                     capxTokenCaps[_capxTokenAmount],
                 "CapxRedemption: Lootboxes for the token amount are exhausted"
             );
 
-            lootBoxMinted.capxTokens[_capxTokenAmount] += 1;
+            lootboxesRedeemed.capxTokens[_capxTokenAmount] += 1;
 
             require(IERC20(capxToken).approve(_msgSender(), _capxTokenAmount));
 
@@ -307,11 +309,11 @@ contract CapxGameResourceRedeemer is
             );
 
             require(
-                lootBoxMinted.resources + 1 <= maxResourcesLootboxes,
+                lootboxesRedeemed.resources + 1 <= maxResourcesLootboxes,
                 "CapxRedemption: Max cap for redeeming resources has reached."
             );
 
-            lootBoxMinted.resources += 1;
+            lootboxesRedeemed.resources += 1;
 
             capxGameResource.redeemResources(
                 _msgSender(),
