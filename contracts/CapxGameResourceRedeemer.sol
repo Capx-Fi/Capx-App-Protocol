@@ -8,8 +8,6 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import {ICapxGameResource} from "contracts/interfaces/ICapxGameResource.sol";
 import {ICapxNFT} from "contracts/interfaces/ICapxNFT.sol";
 
@@ -35,14 +33,11 @@ contract CapxGameResourceRedeemer is
         uint256 quantity; // Quantity of the lootboxes
     }
 
-    uint256 public constant LOOTBOX = 5;
 
     LootboxTypes public lootBoxMinted;
 
-    mapping(address => mapping(uint256 => bool)) private craftedLootboxes;
     mapping(address => mapping(uint256 => mapping(uint256 => uint256)))
         private minedResources;
-    mapping(address => mapping(uint256 => uint256)) private redeemedLootboxes;
 
     mapping(address => uint256) public userCraftedLootboxes;
 
@@ -51,6 +46,8 @@ contract CapxGameResourceRedeemer is
 
     mapping(uint256 => uint256) private capxTokenCaps;
     uint256[] public capxTokenAmounts; // Array to store different token amounts [ 2, 3, 5, 10]
+
+    mapping(uint256 => address) private redeemedLootboxOwners;
 
     address public authorizedSigner;
 
@@ -213,7 +210,7 @@ contract CapxGameResourceRedeemer is
     function redeemLootbox(
         bytes32 _messageHash,
         bytes memory _signature,
-        uint256 _timestamp,
+        uint256 _lootboxId,
         bytes calldata _redemptionData
     ) external nonReentrant {
         require(
@@ -225,14 +222,12 @@ contract CapxGameResourceRedeemer is
             "CapxRedemption: NFT contract address is not set"
         );
 
-        require(
-            redeemedLootboxes[_msgSender()][_timestamp] != 0,
-            "CapxRedemption: User has already redeemed the lootbox."
-        );
+        require(redeemedLootboxOwners[_lootboxId] == address(0), "CapxRedemption: User has already redeemed the lootboxId");
+
 
         require(
             keccak256(
-                abi.encodePacked(_msgSender(), _timestamp, _redemptionData)
+                abi.encodePacked(_lootboxId, _redemptionData)
             ) == _messageHash,
             "CapxRedemption: Invalid MessageHash"
         );
@@ -254,7 +249,7 @@ contract CapxGameResourceRedeemer is
 
         uint256 redeemedLootboxID = capxGameResource.burnLootbox(_msgSender());
 
-        redeemedLootboxes[_msgSender()][_timestamp] = redeemedLootboxID;
+        redeemedLootboxOwners[_lootboxId] = _msgSender();
 
         if (_lootBoxType == 1) {
             require(
