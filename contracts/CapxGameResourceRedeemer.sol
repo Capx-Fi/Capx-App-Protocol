@@ -32,11 +32,9 @@ contract CapxGameResourceRedeemer is
         mapping(uint256 => uint256) capxTokens;
     }
 
-
     LootboxTypes public lootboxesRedeemed;
-    
-    uint256 public lootboxesMinted;
 
+    uint256 public lootboxesMinted;
 
     mapping(address => mapping(uint256 => mapping(uint256 => uint256)))
         private minedResources;
@@ -227,15 +225,17 @@ contract CapxGameResourceRedeemer is
             address(capxToken) != address(0),
             "CapxRedemption: Token contract address is not set"
         );
-        
+
         uint256 redeemedLootboxID = capxGameResource.burnLootbox(_msgSender());
 
-        require(redeemedLootboxOwners[redeemedLootboxID] == address(0), "CapxRedemption: User has already redeemed the lootboxId");
+        require(
+            redeemedLootboxOwners[redeemedLootboxID] == address(0),
+            "CapxRedemption: User has already redeemed the lootboxId"
+        );
 
         require(
-            keccak256(
-                abi.encodePacked(redeemedLootboxID, _redemptionData)
-            ) == _messageHash,
+            keccak256(abi.encodePacked(redeemedLootboxID, _redemptionData)) ==
+                _messageHash,
             "CapxRedemption: Invalid MessageHash"
         );
 
@@ -253,7 +253,6 @@ contract CapxGameResourceRedeemer is
                 _redemptionData,
                 (uint256[], uint256[], uint256, uint256)
             );
-
 
         redeemedLootboxOwners[redeemedLootboxID] = _msgSender();
 
@@ -387,5 +386,16 @@ contract CapxGameResourceRedeemer is
         uint256 timestamp
     ) external view returns (uint256 amount) {
         return minedResources[miner][resourceId][timestamp];
+    }
+
+    function getRedeemedLootboxes() public view returns (uint256) {
+        uint256 totalRedeemed = lootboxesRedeemed.resources +
+            lootboxesRedeemed.nfts;
+
+        for (uint256 i = 0; i < capxTokenAmounts.length; i++) {
+            totalRedeemed += lootboxesRedeemed.capxTokens[capxTokenAmounts[i]];
+        }
+
+        return totalRedeemed;
     }
 }
