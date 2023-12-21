@@ -41,8 +41,8 @@ contract CapxGameResourceRedeemer is
 
     mapping(address => uint256) public userCraftedLootboxes;
 
-    uint256 public maxResourcesLootboxes = 4600000;
-    uint256 public maxNFTLootboxes = 10000;
+    uint256 public maxResourcesLootboxes;
+    uint256 public maxNFTLootboxes;
 
     mapping(uint256 => uint256) private capxTokenCaps;
     uint256[] public capxTokenAmounts; // Array to store different token amounts [ 2, 3, 5, 10]
@@ -78,11 +78,28 @@ contract CapxGameResourceRedeemer is
         onlyOwner
     {}
 
-    function initialize(address _authorizedSigner) public initializer {
+    function initialize(
+        address _authorizedSigner,
+        uint256 _maxResourcesLootboxes,
+        uint256 _maxNFTLootboxes,
+        uint256[] memory _tokenAmounts,
+        uint256[] memory _caps
+    ) public initializer {
+        require(
+            _tokenAmounts.length == _caps.length,
+            "CapxRedemption: Element length of tokenAmounts must match length of caps"
+        );
         __Ownable_init();
         __Pausable_init();
         __ReentrancyGuard_init();
         authorizedSigner = _authorizedSigner;
+        maxResourcesLootboxes = _maxResourcesLootboxes;
+        maxNFTLootboxes = _maxNFTLootboxes;
+        capxTokenAmounts = _tokenAmounts;
+
+        for (uint256 i = 0; i < _tokenAmounts.length; i++) {
+            capxTokenCaps[_tokenAmounts[i]] = _caps[i];
+        }
     }
 
     function updateGameResourceContractAddress(address _capxGameResource)
@@ -121,22 +138,6 @@ contract CapxGameResourceRedeemer is
             abi.encodePacked("\x19Ethereum Signed Message:\n32", messagehash)
         );
         return ECDSA.recover(messageDigest, signature);
-    }
-
-    function initializeCapxTokenCaps(
-        uint256[] memory _tokenAmounts,
-        uint256[] memory _caps
-    ) external onlyOwner {
-        require(
-            _tokenAmounts.length == _caps.length,
-            "CapxRedemption: Element length of tokenAmounts must match length of caps"
-        );
-
-        capxTokenAmounts = _tokenAmounts;
-
-        for (uint256 i = 0; i < _tokenAmounts.length; i++) {
-            capxTokenCaps[_tokenAmounts[i]] = _caps[i];
-        }
     }
 
     function mineResource(
