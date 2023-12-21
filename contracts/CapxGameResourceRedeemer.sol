@@ -152,7 +152,7 @@ contract CapxGameResourceRedeemer is
         );
 
         require(
-            minedResources[_msgSender()][resource][mineTimeStamp] != 0,
+            minedResources[_msgSender()][resource][mineTimeStamp] == 0,
             "CapxRedemption: User has already claimed the resource."
         );
 
