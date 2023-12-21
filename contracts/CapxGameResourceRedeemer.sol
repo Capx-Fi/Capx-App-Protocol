@@ -210,7 +210,6 @@ contract CapxGameResourceRedeemer is
     function redeemLootbox(
         bytes32 _messageHash,
         bytes memory _signature,
-        uint256 _lootboxId,
         bytes calldata _redemptionData
     ) external nonReentrant {
         require(
@@ -222,12 +221,18 @@ contract CapxGameResourceRedeemer is
             "CapxRedemption: NFT contract address is not set"
         );
 
-        require(redeemedLootboxOwners[_lootboxId] == address(0), "CapxRedemption: User has already redeemed the lootboxId");
+        require(
+            address(capxToken) != address(0),
+            "CapxRedemption: Token contract address is not set"
+        );
+        
+        uint256 redeemedLootboxID = capxGameResource.burnLootbox(_msgSender());
 
+        require(redeemedLootboxOwners[redeemedLootboxID] == address(0), "CapxRedemption: User has already redeemed the lootboxId");
 
         require(
             keccak256(
-                abi.encodePacked(_lootboxId, _redemptionData)
+                abi.encodePacked(redeemedLootboxID, _redemptionData)
             ) == _messageHash,
             "CapxRedemption: Invalid MessageHash"
         );
@@ -247,9 +252,8 @@ contract CapxGameResourceRedeemer is
                 (uint256[], uint256[], uint256, uint256)
             );
 
-        uint256 redeemedLootboxID = capxGameResource.burnLootbox(_msgSender());
 
-        redeemedLootboxOwners[_lootboxId] = _msgSender();
+        redeemedLootboxOwners[redeemedLootboxID] = _msgSender();
 
         if (_lootBoxType == 1) {
             require(
