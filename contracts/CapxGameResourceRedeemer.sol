@@ -39,8 +39,6 @@ contract CapxGameResourceRedeemer is
     mapping(address => mapping(uint256 => mapping(uint256 => uint256)))
         private minedResources;
 
-    mapping(address => uint256) public userCraftedLootboxes;
-
     uint256 public maxResourcesLootboxes;
     uint256 public maxNFTLootboxes;
 
@@ -178,34 +176,22 @@ contract CapxGameResourceRedeemer is
         );
     }
 
-    // Burns the resources.
+    // Burns the resources and mints Lootbox.
     function forgeLootbox() external nonReentrant {
+        require(
+            lootboxesMinted + 1 <= maxLootboxes(),
+            "CapxRedemption: Max cap for forging lootboxes has reached."
+        );
         require(
             address(capxGameResource) != address(0),
             "CapxRedemption: Game resource contract address is not set"
         );
 
-        userCraftedLootboxes[_msgSender()] += 1;
-
-        capxGameResource.forgeLootbox(_msgSender());
-    }
-
-    // Mints the lootbox.
-    function mintLootbox() external nonReentrant {
-        require(
-            lootboxesMinted + 1 <= maxLootboxes(),
-            "CapxRedemption: Max cap for crafting lootboxes has reached."
-        );
-        require(
-            userCraftedLootboxes[_msgSender()] > 0,
-            "CapxRedemption: User has not forged lootboxes"
-        );
-
-        userCraftedLootboxes[_msgSender()] -= 1;
-
         lootboxesMinted += 1;
-        capxGameResource.mintLootbox(_msgSender(), lootboxesMinted);
+
+        capxGameResource.forgeLootbox(_msgSender(), lootboxesMinted);
     }
+
 
     // Reveals the lootbox.
     function redeemLootbox(

@@ -20,7 +20,6 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
 
     mapping(address => uint256[]) public lootBoxIDs;
     mapping(address => uint256) public userRedeemedLootBox;
-    mapping(address => uint256) public unclaimedLootboxes;
 
     address public authorizedMinter;
 
@@ -104,7 +103,7 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
     }
 
     // Burns the resources.
-    function forgeLootbox(address player)
+    function forgeLootbox(address player, uint256 lootboxId)
         external
         onlyAuthorized
         whenNotPaused
@@ -140,15 +139,7 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
         amounts[3] = 1;
 
         _burnBatch(player, resources, amounts);
-    }
 
-    // Minted the lootbox
-    function mintLootbox(address player, uint256 lootboxId)
-        external
-        onlyAuthorized
-        whenNotPaused
-        nonReentrant
-    {
         lootBoxIDs[player].push(lootboxId);
 
         _mint(player, LOOTBOX, 1, "");
