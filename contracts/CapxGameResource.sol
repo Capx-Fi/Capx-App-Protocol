@@ -210,7 +210,7 @@ contract CapxGameResource is ERC1155, ReentrancyGuard, Ownable, Pausable {
         );
         uint256 lootboxIndexPointer = userRedeemedLootBox[player];
         uint256 redeemedLootboxId = lootBoxIDs[player][lootboxIndexPointer];
-        userRedeemedLootBox[_msgSender()] += 1;
+        userRedeemedLootBox[player] += 1;
         _burn(player, LOOTBOX, 1);
         return redeemedLootboxId;
     }
