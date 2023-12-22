@@ -399,4 +399,26 @@ contract CapxGameResourceRedeemer is
 
         return totalRedeemed;
     }
+
+    function retrieveRedeemedLootboxes()
+        external
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        uint256 capxTokensRedeemed;
+        for (uint256 i = 0; i < capxTokenAmounts.length; i++) {
+            capxTokensRedeemed += lootboxesRedeemed.capxTokens[
+                capxTokenAmounts[i]
+            ];
+        }
+        return (
+            lootboxesRedeemed.nfts,
+            capxTokensRedeemed,
+            lootboxesRedeemed.resources
+        );
+    }
 }
