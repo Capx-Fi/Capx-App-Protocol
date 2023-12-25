@@ -33,6 +33,10 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
     address public authorizedMinter;
 
     mapping(address => reputationScoreTypes) public reputationScore;
+    mapping(string => mapping(address => mapping(uint256 => bool)))
+        private claimedUsers;
+
+    mapping (string => uint256) public reputationScoreClaimedForQuestId;
 
     // Modifier to restrict function access to only the authorizedMinter
     modifier onlyAuthorized() {
@@ -50,7 +54,9 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Function to claim reputation scores
-    function claimReputationScore(
+    function claim(
+        string memory _communityQuestId,
+        uint256 _timestamp,
         uint256 _reputationType,
         uint256 _reputationScore,
         address _receiver
@@ -59,6 +65,9 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
             _receiver != address(0),
             "CapxReputation: Invalid receiver address"
         );
+
+        if (claimedUsers[_communityQuestId][_receiver][_timestamp] == true)
+            revert("CapxReputation: User has already claimed.");
 
         ICapxID.CapxIDMetadata memory metadata = capxID.capxIDMetadata(
             _receiver
@@ -76,6 +85,8 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
 
         uint256 updatedReputationScore = metadata.reputationScore +
             _reputationScore;
+
+        reputationScoreClaimedForQuestId[_communityQuestId] += _reputationScore;
 
         capxID.updateReputationScore(metadata.mintID, updatedReputationScore);
     }

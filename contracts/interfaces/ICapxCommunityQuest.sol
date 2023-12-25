@@ -1,8 +1,7 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.18;
 
 interface ICapxCommunityQuest {
-    
     error AlreadyClaimed();
     error InvalidEndTime();
     error InvalidStartTime();
@@ -22,8 +21,6 @@ interface ICapxCommunityQuest {
     error ClaimedRewardsExceedTotalRewards();
 
     function claim(
-        bytes32 _messageHash,
-        bytes memory _signature,
         string memory _questId,
         address _receiver,
         uint256 _timestamp,
