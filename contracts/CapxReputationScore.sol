@@ -1,15 +1,24 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.18 .0;
 import {ICapxID} from "./interfaces/ICapxId.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import {ICapxReputationScore} from "./interfaces/ICapxReputationScore.sol";
 
-contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+
+contract ReputationContract is
+    Ownable,
+    ReentrancyGuard,
+    Pausable,
+    ICapxReputationScore
+{
     ICapxID capxID;
 
     // Scores for different categories
-    struct reputationScoreTypes {
+    // 1. Social 2. Defi 3. Game
+    struct ReputationScoreTypes {
         uint256 social;
         uint256 defi;
         uint256 game;
@@ -23,34 +32,41 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
         uint256 gameScore;
     }
 
-    event CapxReputationScore(
-        address user,
-        string username,
-        uint256 reputationType,
-        uint256 reputationScore
-    );
+    struct CapxQuestDetails {
+        uint256 reputationType;
+        uint256 maxReputationScore;
+        uint256 claimedUsers;
+        uint256 claimedReputationScore;
+    }
 
-    address public authorizedMinter;
+    address public forgerContract;
 
-    mapping(address => reputationScoreTypes) public reputationScore;
+    mapping(address => ReputationScoreTypes) public reputationScore;
     mapping(string => mapping(address => mapping(uint256 => bool)))
         private claimedUsers;
+    mapping(string => CapxQuestDetails) public communityQuestDetails;
 
-    mapping (string => uint256) public reputationScoreClaimedForQuestId;
-
-    // Modifier to restrict function access to only the authorizedMinter
-    modifier onlyAuthorized() {
-        require(
-            msg.sender == authorizedMinter || msg.sender == owner(),
-            "CapxReputation: Caller is not authorized"
-        );
+    modifier onlyForger() {
+        if (forgerContract == address(0)) revert ForgerNotInitialised();
+        if (_msgSender() != forgerContract) revert NotAuthorized();
         _;
     }
 
-    // Constructor to set the initial authorizedMinter
-    constructor(address _authorizedMinter, address _capxId) {
-        authorizedMinter = _authorizedMinter;
+    constructor(address _capxId) {
         capxID = ICapxID(_capxId);
+    }
+
+    function setQuestDetails(QuestDTO memory quest) external onlyForger {
+        if (quest.reputationType < 1 || quest.reputationType > 3)
+            revert InvalidReputationType();
+        if (quest.maxReputationScore <= 0) revert InvalidMaxReputationScore();
+
+        communityQuestDetails[quest.communityQuestId] = CapxQuestDetails({
+            reputationType: quest.reputationType,
+            maxReputationScore: quest.maxReputationScore,
+            claimedUsers: 0,
+            claimedReputationScore: 0
+        });
     }
 
     // Function to claim reputation scores
@@ -60,7 +76,7 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
         uint256 _reputationType,
         uint256 _reputationScore,
         address _receiver
-    ) external onlyAuthorized nonReentrant whenNotPaused {
+    ) external onlyForger nonReentrant whenNotPaused {
         require(
             _receiver != address(0),
             "CapxReputation: Invalid receiver address"
@@ -68,6 +84,21 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
 
         if (claimedUsers[_communityQuestId][_receiver][_timestamp] == true)
             revert("CapxReputation: User has already claimed.");
+
+        CapxQuestDetails memory currCapxQuest = communityQuestDetails[
+            _communityQuestId
+        ];
+
+        if (
+            currCapxQuest.reputationType == 0 ||
+            currCapxQuest.maxReputationScore == 0
+        ) revert RewardTypeNotInitialised();
+
+        if (currCapxQuest.maxReputationScore < _reputationScore)
+            revert MaxRewardExceeded();
+
+        if (currCapxQuest.reputationType != _reputationType)
+            revert ReputationTypeMisMatch();
 
         ICapxID.CapxIDMetadata memory metadata = capxID.capxIDMetadata(
             _receiver
@@ -86,7 +117,8 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
         uint256 updatedReputationScore = metadata.reputationScore +
             _reputationScore;
 
-        reputationScoreClaimedForQuestId[_communityQuestId] += _reputationScore;
+        currCapxQuest.claimedUsers += 1;
+        currCapxQuest.claimedReputationScore += _reputationScore;
 
         capxID.updateReputationScore(metadata.mintID, updatedReputationScore);
     }
@@ -95,11 +127,8 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
         uint256 _reputationType,
         uint256 _reputationScore,
         address _receiver
-    ) external onlyAuthorized nonReentrant whenNotPaused {
-        require(
-            _receiver != address(0),
-            "CapxReputation: Invalid receiver address"
-        );
+    ) external onlyForger nonReentrant whenNotPaused {
+        if (_receiver == address(0)) revert ZeroAddressNotAllowed();
 
         if (_reputationType == 1) {
             reputationScore[_receiver].social = _reputationScore;
@@ -108,18 +137,18 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
         } else if (_reputationType == 3) {
             reputationScore[_receiver].game = _reputationScore;
         } else {
-            revert("CapxReputation: Invalid reputation type");
+            revert InvalidReputationType();
         }
     }
 
-    function getCapxIDMetadata(string calldata username)
-        public
-        view
-        returns (CapxReputationMetadata memory)
-    {
+    function getCapxIDMetadata(
+        string calldata username
+    ) public view returns (CapxReputationMetadata memory) {
         ICapxID.CapxIDMetadata memory capxIdMetadata = capxID.getCapxIDMetadata(
             username
         );
+
+        if (capxIdMetadata.mintID == 0) revert capxIdNotMinted();
 
         address tokenOwner = capxID.ownerOf(capxIdMetadata.mintID);
 
@@ -141,8 +170,11 @@ contract ReputationContract is Ownable, ReentrancyGuard, Pausable {
         _unpause();
     }
 
-    function setAuthorizedMinter(address _newMinter) external onlyAuthorized {
-        require(_newMinter != address(0), "CapxReputation: Invalid address");
-        authorizedMinter = _newMinter;
+    function setForgerContract(address _forgerContract) external onlyOwner {
+        require(
+            _forgerContract != address(0),
+            "CapxReputation: Invalid address"
+        );
+        forgerContract = _forgerContract;
     }
 }

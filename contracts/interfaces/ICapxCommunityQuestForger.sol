@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.18 .0;
 
 interface ICapxCommunityQuestForger {
     error ZeroAddressNotAllowed();
@@ -9,6 +9,30 @@ interface ICapxCommunityQuestForger {
     error InvalidMessageHash();
     error InvalidSigner();
     error InvalidRewardType();
+    error NotAuthorized();
+    error CommunityAlreadyExists();
+    error InvalidCommunityId();
+    error InvalidCommunityAddress();
+    error NotCapxGeneratedToken();
+    error RewardTypeMismatch();
+    error InvalidQuestNumber();
+    error InvalidStartTime();
+    error InvalidEndTime();
+    error QuestNotStarted();
+    error QuestEnded();
+    error OverMaxParticipants();
+    error CapxReputationContractNotInitalised();
+    error QuestIdDoesNotExist();
+    error QuestAlreadyActive();
+    error QuestAlreadyDisabled();
+    error CommunityOwnerCannotBeRemoved();
+    error InvalidAuthorizedAccount();
+    error AccountBelongsToAuthorizedCommunity();
+    error AccountBelongsToDifferentCommunity();
+    error AlreadyAuthorized();
+    error AlreadyNotAuthorized();
+    error UseRewardTypeSpecificFunctions();
+    error InvalidIOURewards();
 
     event CapxCommunityQuestCreated(
         address indexed creator,
@@ -29,21 +53,13 @@ interface ICapxCommunityQuestForger {
     );
 
     event CapxReputationScoreClaimed(
+        address indexed communityAddress,
         string questId,
         address claimReceiver,
         uint256 timestamp,
         uint256 reputationType,
         uint256 reputationScore
     );
-
-    function emitClaim(
-        address communityAddress,
-        string memory questId,
-        address claimReceiver,
-        uint256 timestamp,
-        address rewardToken,
-        uint256 rewardAmount
-    ) external;
 
     function claimSignerAddress() external view returns (address);
 
