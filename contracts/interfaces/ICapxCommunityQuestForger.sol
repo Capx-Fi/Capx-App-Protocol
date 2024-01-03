@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18 .0;
+pragma solidity ^0.8.18;
 
 interface ICapxCommunityQuestForger {
     error ZeroAddressNotAllowed();
@@ -21,18 +21,47 @@ interface ICapxCommunityQuestForger {
     error QuestNotStarted();
     error QuestEnded();
     error OverMaxParticipants();
-    error CapxReputationContractNotInitalised();
+    error CapxReputationContractNotInitialised();
     error QuestIdDoesNotExist();
     error QuestAlreadyActive();
     error QuestAlreadyDisabled();
     error CommunityOwnerCannotBeRemoved();
-    error InvalidAuthorizedAccount();
-    error AccountBelongsToAuthorizedCommunity();
-    error AccountBelongsToDifferentCommunity();
     error AlreadyAuthorized();
     error AlreadyNotAuthorized();
     error UseRewardTypeSpecificFunctions();
     error InvalidIOURewards();
+
+    struct CreateQuest {
+        address rewardToken;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 maxParticipants;
+        uint256 totalRewardAmountInWei;
+        uint256 maxRewardAmountInWei;
+        string communityId;
+        uint256 questNumber;
+        uint256 rewardType;
+        uint256 reputationType;
+        uint256 maxReputationScore;
+    }
+
+    struct CapxQuestDetails {
+        string communityId;
+        uint256 questNumber;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 maxParticipants;
+        uint256 claimedParticipants;
+        uint256 rewardType;
+        bool active;
+    }
+
+    struct RewardTypeDTO {
+        string communityId;
+        uint256 questNumber;
+        uint256 maxParticipants;
+        uint256 rewardType;
+    }
 
     event CapxCommunityQuestCreated(
         address indexed creator,
@@ -63,6 +92,8 @@ interface ICapxCommunityQuestForger {
 
     function claimSignerAddress() external view returns (address);
 
-    function updateCommunityOwner(address _oldOwner, address _newOwner)
-        external;
+    function updateCommunityOwner(
+        address _oldOwner,
+        address _newOwner
+    ) external;
 }

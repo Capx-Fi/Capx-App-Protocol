@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18 .0;
+pragma solidity ^0.8.18;
 pragma abicoder v2;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -9,6 +9,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {ICapxCommunityQuest} from "./interfaces/ICapxCommunityQuest.sol";
 import {ICapxCommunityQuestForger} from "./interfaces/ICapxCommunityQuestForger.sol";
 import {ITokenPoweredByCapx} from "./interfaces/ITokenPoweredByCapx.sol";
+
 import {StringHelper} from "./library/StringHelper.sol";
 
 contract CapxCommunityQuest is
@@ -24,14 +25,6 @@ contract CapxCommunityQuest is
     string public communityId;
     uint256 public communityQuestCount;
     bool public isCommunityActive;
-
-    struct CapxQuestDetails {
-        address rewardToken;
-        uint256 totalRewardAmountInWei;
-        uint256 maxRewardAmountInWei;
-        uint256 claimedRewards;
-        uint256 claimedParticipants;
-    }
 
     ICapxCommunityQuestForger public capxCommunityQuestForger;
 
@@ -189,8 +182,7 @@ contract CapxCommunityQuest is
             IERC20(currCapxQuest.rewardToken).approve(
                 _receiver,
                 _rewardAmountInWei
-            ),
-            "Failed Approval."
+            )
         );
         IERC20(currCapxQuest.rewardToken).safeTransfer(
             _receiver,
@@ -231,8 +223,7 @@ contract CapxCommunityQuest is
         lastKnownBalance[currCapxQuest.rewardToken] -= pendingRewards;
 
         require(
-            IERC20(currCapxQuest.rewardToken).approve(owner(), pendingRewards),
-            "Approval failed."
+            IERC20(currCapxQuest.rewardToken).approve(owner(), pendingRewards)
         );
         IERC20(currCapxQuest.rewardToken).safeTransfer(owner(), pendingRewards);
     }
@@ -302,9 +293,10 @@ contract CapxCommunityQuest is
         }
     }
 
-    function withdrawETH() public onlyOwner nonReentrant {
-        (bool sendSuccess, bytes memory sendResponse) = payable(_msgSender())
-            .call{value: address(this).balance}("");
+    function withdrawETH(address _caller) public onlyForger nonReentrant {
+        (bool sendSuccess, bytes memory sendResponse) = payable(_caller).call{
+            value: address(this).balance
+        }("");
         require(
             sendSuccess,
             string(

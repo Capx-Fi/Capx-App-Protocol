@@ -1,32 +1,27 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18 .0;
+pragma solidity ^0.8.18;
 
 interface ICapxCommunityQuest {
     error AlreadyClaimed();
-    error InvalidEndTime();
-    error InvalidStartTime();
     error NoRewardsToClaim();
     error QuestIdUsed();
     error InvalidQuestId();
-    error QuestNotStarted();
-    error QuestEnded();
     error RewardsExceedAllowedLimit();
     error TotalRewardsExceedsAvailableBalance();
-    error QuestNotActive();
-    error InvalidSigner();
-    error InvalidMessageHash();
     error ZeroAddressNotAllowed();
-    error OverMaxParticipants();
     error CommunityNotActive();
     error NotAuthorized();
     error CannotClaimFutureReward();
     error NoRewardsToWithdraw();
     error ClaimedRewardsExceedTotalRewards();
-    error AlreadyUnauthorized();
-    error AlreadyAuthorized();
-    error QuestAlreadyActive();
-    error QuestAlreadyDisabled();
-    error InvalidIOURewards();
+
+    struct CapxQuestDetails {
+        address rewardToken;
+        uint256 totalRewardAmountInWei;
+        uint256 maxRewardAmountInWei;
+        uint256 claimedRewards;
+        uint256 claimedParticipants;
+    }
 
     struct QuestDTO {
         uint256 questNumber;
@@ -54,5 +49,5 @@ interface ICapxCommunityQuest {
     function enableQuest(uint256 _questNumber) external;
     function disableQuest(uint256 _questNumber) external;
     function withdrawTokens(address[] memory tokens) external;
-
+    function withdrawETH(address caller) external;
 }

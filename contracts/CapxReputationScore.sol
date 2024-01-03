@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18 .0;
+pragma solidity ^0.8.18;
 import {ICapxID} from "./interfaces/ICapxId.sol";
 import {ICapxReputationScore} from "./interfaces/ICapxReputationScore.sol";
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
 contract ReputationContract is
     Ownable,
@@ -15,29 +15,6 @@ contract ReputationContract is
     ICapxReputationScore
 {
     ICapxID capxID;
-
-    // Scores for different categories
-    // 1. Social 2. Defi 3. Game
-    struct ReputationScoreTypes {
-        uint256 social;
-        uint256 defi;
-        uint256 game;
-    }
-
-    struct CapxReputationMetadata {
-        string username;
-        uint256 mintID;
-        uint256 socialScore;
-        uint256 defiScore;
-        uint256 gameScore;
-    }
-
-    struct CapxQuestDetails {
-        uint256 reputationType;
-        uint256 maxReputationScore;
-        uint256 claimedUsers;
-        uint256 claimedReputationScore;
-    }
 
     address public forgerContract;
 
@@ -148,7 +125,7 @@ contract ReputationContract is
             username
         );
 
-        if (capxIdMetadata.mintID == 0) revert capxIdNotMinted();
+        if (capxIdMetadata.mintID == 0) revert CapxIdNotMinted();
 
         address tokenOwner = capxID.ownerOf(capxIdMetadata.mintID);
 

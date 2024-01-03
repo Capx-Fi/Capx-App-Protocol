@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18 .0;
+pragma solidity ^0.8.18;
 
 interface ICapxReputationScore {
     error ZeroAddressNotAllowed();
@@ -9,9 +9,30 @@ interface ICapxReputationScore {
     error MaxRewardExceeded();
     error ReputationTypeMisMatch();
     error InvalidReputationType();
-    error capxIdNotMinted();
-    error questIdNotCreated();
+    error CapxIdNotMinted();
     error InvalidMaxReputationScore();
+
+    // 1. Social 2. Defi 3. Game
+    struct ReputationScoreTypes {
+        uint256 social;
+        uint256 defi;
+        uint256 game;
+    }
+
+    struct CapxReputationMetadata {
+        string username;
+        uint256 mintID;
+        uint256 socialScore;
+        uint256 defiScore;
+        uint256 gameScore;
+    }
+
+    struct CapxQuestDetails {
+        uint256 reputationType;
+        uint256 maxReputationScore;
+        uint256 claimedUsers;
+        uint256 claimedReputationScore;
+    }
 
     struct QuestDTO {
         string communityQuestId;

@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18 .0;
+pragma solidity ^0.8.18;
 pragma abicoder v2;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -27,38 +27,6 @@ contract CapxCommunityQuestForger is
     ICapxCommunityQuestForger
 {
     using SafeERC20 for IERC20;
-
-    struct CreateQuest {
-        address rewardToken;
-        uint256 startTime;
-        uint256 endTime;
-        uint256 maxParticipants;
-        uint256 totalRewardAmountInWei;
-        uint256 maxRewardAmountInWei;
-        string communityId;
-        uint256 questNumber;
-        uint256 rewardType;
-        uint256 reputationType;
-        uint256 maxReputationScore;
-    }
-
-    struct CapxQuestDetails {
-        string communityId;
-        uint256 questNumber;
-        uint256 startTime;
-        uint256 endTime;
-        uint256 maxParticipants;
-        uint256 claimedParticipants;
-        uint256 rewardType;
-        bool active;
-    }
-
-    struct RewardTypeDTO {
-        string communityId;
-        uint256 questNumber;
-        uint256 maxParticipants;
-        uint256 rewardType;
-    }
 
     address public claimSignerAddress;
     address public capxCommunityQuest;
@@ -409,7 +377,7 @@ contract CapxCommunityQuestForger is
         if (currentDetails.rewardType != 2 || currentDetails.rewardType != 3)
             revert InvalidRewardType();
         if (address(capxReputationScore) == address(0))
-            revert CapxReputationContractNotInitalised();
+            revert CapxReputationContractNotInitialised();
 
         capxReputationScore.setQuestDetails(
             ICapxReputationScore.QuestDTO({
@@ -713,5 +681,12 @@ contract CapxCommunityQuestForger is
     ) external nonReentrant onlyCommunityOwners(_communityId) {
         address communityAddress = community[_communityId];
         ICapxCommunityQuest(communityAddress).withdrawTokens(tokens);
+    }
+
+    function withdrawETH(
+        string calldata _communityId
+    ) external nonReentrant onlyCommunityOwners(_communityId) {
+        address communityAddress = community[_communityId];
+        ICapxCommunityQuest(communityAddress).withdrawETH(_msgSender());
     }
 }
