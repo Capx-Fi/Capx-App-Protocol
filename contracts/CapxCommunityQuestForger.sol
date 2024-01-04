@@ -390,8 +390,8 @@ contract CapxCommunityQuestForger is
 
     function updateRewardType(
         RewardTypeDTO calldata _newRewards,
-        bytes calldata _IOURewardsData,
-        bytes calldata _ReputationRewardsData
+        ICapxCommunityQuest.QuestDTO calldata _newIOURewards,
+        ICapxReputationScore.QuestDTO calldata _newReputationRewards
     ) external nonReentrant onlyCommunityAuthorized(_newRewards.communityId) {
         string memory _questId = getQuestId(
             _newRewards.communityId,
@@ -403,14 +403,6 @@ contract CapxCommunityQuestForger is
         ];
         if (currentDetails.rewardType == _newRewards.rewardType)
             revert UseRewardTypeSpecificFunctions();
-        ICapxCommunityQuest.QuestDTO memory _newIOURewards = abi.decode(
-            _IOURewardsData,
-            (ICapxCommunityQuest.QuestDTO)
-        );
-        ICapxReputationScore.QuestDTO memory _newReputationRewards = abi.decode(
-            _ReputationRewardsData,
-            (ICapxReputationScore.QuestDTO)
-        );
 
         address communityAddress = community[_questId];
 
@@ -432,9 +424,9 @@ contract CapxCommunityQuestForger is
 
     function handleIOURewards(
         address communityAddress,
-        RewardTypeDTO memory _newRewards,
+        RewardTypeDTO calldata _newRewards,
         CapxQuestDetails storage currentDetails,
-        ICapxCommunityQuest.QuestDTO memory _newIOURewards
+        ICapxCommunityQuest.QuestDTO calldata _newIOURewards
     ) internal {
         // Adding IOU Rewards (Switching to Reward Type 1 or 3 from 2)
         if (
@@ -480,7 +472,7 @@ contract CapxCommunityQuestForger is
         string memory _questId,
         uint256 _newRewardType,
         uint256 _oldRewardType,
-        ICapxReputationScore.QuestDTO memory _newReputationRewards
+        ICapxReputationScore.QuestDTO calldata _newReputationRewards
     ) internal {
         if (_oldRewardType == 1 && _newRewardType == 2) {
             capxReputationScore.setQuestDetails(_newReputationRewards);
