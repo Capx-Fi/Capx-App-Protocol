@@ -367,7 +367,7 @@ contract CapxCommunityQuestForger is
         uint256 _questNumber,
         uint256 _newReputationType,
         uint256 _newMaxReputationScore
-    ) external nonReentrant onlyCommunityOwners(_communityId) {
+    ) external nonReentrant onlyCommunityAuthorized(_communityId) {
         string memory _questId = getQuestId(_communityId, _questNumber);
 
         CapxQuestDetails storage currentDetails = communityQuestDetails[
@@ -618,7 +618,10 @@ contract CapxCommunityQuestForger is
         if (currCapxQuest.active == true) revert QuestAlreadyActive();
 
         if (currCapxQuest.rewardType == 1 || currCapxQuest.rewardType == 3) {
-            ICapxCommunityQuest(_communityAddress).enableQuest(_questNumber);
+            ICapxCommunityQuest(_communityAddress).enableQuest(
+                _questNumber,
+                _msgSender()
+            );
         }
 
         currCapxQuest.active = true;

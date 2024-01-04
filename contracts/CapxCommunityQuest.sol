@@ -229,7 +229,8 @@ contract CapxCommunityQuest is
     }
 
     function enableQuest(
-        uint256 _questNumber
+        uint256 _questNumber,
+        address _authorizedCaller
     ) external nonReentrant onlyForger {
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[
             _questNumber
@@ -237,7 +238,7 @@ contract CapxCommunityQuest is
         uint256 pendingRewards = currCapxQuest.totalRewardAmountInWei -
             currCapxQuest.claimedRewards;
         IERC20(currCapxQuest.rewardToken).safeTransferFrom(
-            owner(),
+            _authorizedCaller,
             address(this),
             pendingRewards
         );
@@ -266,7 +267,7 @@ contract CapxCommunityQuest is
             lastKnownBalance[currCapxQuest.rewardToken] += _rewardAmount;
             currCapxQuest.totalRewardAmountInWei += _rewardAmount;
         } else {
-            // Max Participants Decreased. Transfer tokens from the contract.
+            // Max Participants Decreased. Transfer tokens from the contract to owner.
             uint256 updatedRewardAmtInWei = currCapxQuest
                 .totalRewardAmountInWei - _rewardAmount;
             if (updatedRewardAmtInWei < currCapxQuest.claimedRewards)
@@ -275,7 +276,7 @@ contract CapxCommunityQuest is
             lastKnownBalance[currCapxQuest.rewardToken] -= _rewardAmount;
 
             IERC20(currCapxQuest.rewardToken).safeTransfer(
-                _caller,
+                owner(),
                 _rewardAmount
             );
         }
