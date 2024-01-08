@@ -11,6 +11,7 @@ interface ICapxReputationScore {
     error InvalidReputationType();
     error CapxIdNotMinted();
     error InvalidMaxReputationScore();
+    error AlreadyClaimed();
 
     // 1. Social 2. Defi 3. Game
     struct ReputationScoreTypes {
@@ -47,6 +48,8 @@ interface ICapxReputationScore {
         uint256 _reputationScore,
         address _receiver
     ) external;
+
+    function disableQuest(string memory _communityQuestId) external;
 
     function setQuestDetails(QuestDTO memory quest) external;
 }

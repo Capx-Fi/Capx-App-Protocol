@@ -61,6 +61,11 @@ interface ICapxCommunityQuestForger {
         uint256 questNumber;
         uint256 maxParticipants;
         uint256 rewardType;
+        uint256 totalRewardAmountInWei;
+        uint256 maxRewardAmountInWei;
+        address rewardToken;
+        uint256 reputationType;
+        uint256 maxReputationScore;
     }
 
     event CapxCommunityQuestCreated(

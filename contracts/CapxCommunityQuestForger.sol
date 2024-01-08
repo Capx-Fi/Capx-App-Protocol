@@ -150,9 +150,12 @@ contract CapxCommunityQuestForger is
             quest.endTime <= block.timestamp || quest.endTime <= quest.startTime
         ) revert InvalidEndTime();
 
-        if (quest.rewardToken == address(0)) revert ZeroAddressNotAllowed();
-        if (!capxTokenForger.isTokenPoweredByCapx(quest.rewardToken))
-            revert NotCapxGeneratedToken();
+        if (quest.rewardType != 2 && quest.rewardToken == address(0))
+            revert ZeroAddressNotAllowed();
+        if (
+            quest.rewardType != 2 &&
+            !capxTokenForger.isTokenPoweredByCapx(quest.rewardToken)
+        ) revert NotCapxGeneratedToken();
 
         address communityAddress = community[quest.communityId];
         if (community[quest.communityId] == address(0))
@@ -183,6 +186,9 @@ contract CapxCommunityQuestForger is
 
         // Create Quest.
         if (quest.rewardType == 1) {
+            ITokenPoweredByCapx(quest.rewardToken).addToWhitelist(
+                communityAddress
+            );
             ICapxCommunityQuest(communityAddress).setQuestDetails(
                 ICapxCommunityQuest.QuestDTO({
                     rewardToken: quest.rewardToken,
@@ -201,6 +207,9 @@ contract CapxCommunityQuestForger is
                 })
             );
         } else if (quest.rewardType == 3) {
+            ITokenPoweredByCapx(quest.rewardToken).addToWhitelist(
+                communityAddress
+            );
             ICapxCommunityQuest(communityAddress).setQuestDetails(
                 ICapxCommunityQuest.QuestDTO({
                     rewardToken: quest.rewardToken,
@@ -335,11 +344,12 @@ contract CapxCommunityQuestForger is
     function updateIOURewards(
         string calldata _communityId,
         uint256 _questNumber,
-        uint256 _newTotalRewardAmountInWei,
+        uint256 _newTotalRewardAmountInWeiIncrement,
         uint256 _newMaxParticipants
     ) external onlyCommunityAuthorized(_communityId) nonReentrant {
-        if (_newTotalRewardAmountInWei <= 0 || _newMaxParticipants <= 0)
-            revert InvalidIOURewards();
+        if (
+            _newTotalRewardAmountInWeiIncrement <= 0 || _newMaxParticipants <= 0
+        ) revert InvalidIOURewards();
         string memory _questId = getQuestId(_communityId, _questNumber);
 
         address communityAddress = isCapxCommunityQuest[_questId];
@@ -356,7 +366,7 @@ contract CapxCommunityQuestForger is
         ICapxCommunityQuest(communityAddress).updateTotalRewards(
             _msgSender(),
             _questNumber,
-            _newTotalRewardAmountInWei,
+            _newTotalRewardAmountInWeiIncrement,
             _maxParticipantsIncreased
         );
         currentDetails.maxParticipants = _newMaxParticipants;
@@ -374,8 +384,8 @@ contract CapxCommunityQuestForger is
             _questId
         ];
 
-        if (currentDetails.rewardType != 2 || currentDetails.rewardType != 3)
-            revert InvalidRewardType();
+        if (currentDetails.rewardType == 1) revert InvalidRewardType();
+
         if (address(capxReputationScore) == address(0))
             revert CapxReputationContractNotInitialised();
 
@@ -389,64 +399,73 @@ contract CapxCommunityQuestForger is
     }
 
     function updateRewardType(
-        RewardTypeDTO calldata _newRewards,
-        ICapxCommunityQuest.QuestDTO calldata _newIOURewards,
-        ICapxReputationScore.QuestDTO calldata _newReputationRewards
-    ) external nonReentrant onlyCommunityAuthorized(_newRewards.communityId) {
+        RewardTypeDTO calldata _rewardUpdateData
+    )
+        external
+        nonReentrant
+        onlyCommunityAuthorized(_rewardUpdateData.communityId)
+    {
         string memory _questId = getQuestId(
-            _newRewards.communityId,
-            _newRewards.questNumber
+            _rewardUpdateData.communityId,
+            _rewardUpdateData.questNumber
         );
 
         CapxQuestDetails storage currentDetails = communityQuestDetails[
             _questId
         ];
-        if (currentDetails.rewardType == _newRewards.rewardType)
+        if (currentDetails.rewardType == _rewardUpdateData.rewardType)
             revert UseRewardTypeSpecificFunctions();
 
-        address communityAddress = community[_questId];
+        address communityAddress = community[_rewardUpdateData.communityId];
 
-        handleIOURewards(
-            communityAddress,
-            _newRewards,
-            currentDetails,
-            _newIOURewards
-        );
+        handleIOURewards(communityAddress, _rewardUpdateData, currentDetails);
         handleReputationRewards(
             _questId,
-            _newRewards.rewardType,
+            _rewardUpdateData.rewardType,
             currentDetails.rewardType,
-            _newReputationRewards
+            _rewardUpdateData
         );
-        currentDetails.maxParticipants = _newRewards.maxParticipants;
-        currentDetails.rewardType = _newRewards.rewardType;
+        currentDetails.maxParticipants = _rewardUpdateData.maxParticipants;
+        currentDetails.rewardType = _rewardUpdateData.rewardType;
     }
 
     function handleIOURewards(
         address communityAddress,
-        RewardTypeDTO calldata _newRewards,
-        CapxQuestDetails storage currentDetails,
-        ICapxCommunityQuest.QuestDTO calldata _newIOURewards
+        RewardTypeDTO calldata _rewardUpdateData,
+        CapxQuestDetails storage currentDetails
     ) internal {
         // Adding IOU Rewards (Switching to Reward Type 1 or 3 from 2)
         if (
             (currentDetails.rewardType == 2) &&
-            (_newRewards.rewardType == 1 || _newRewards.rewardType == 3)
+            (_rewardUpdateData.rewardType == 1 ||
+                _rewardUpdateData.rewardType == 3)
         ) {
+            ITokenPoweredByCapx(_rewardUpdateData.rewardToken).addToWhitelist(
+                communityAddress
+            );
             // Logic to transfer ERC20 tokens from the owner to the community contract
             ICapxCommunityQuest(communityAddress).setQuestDetails(
-                _newIOURewards
+                ICapxCommunityQuest.QuestDTO({
+                    rewardToken: _rewardUpdateData.rewardToken,
+                    questNumber: _rewardUpdateData.questNumber,
+                    totalRewardAmountInWei: _rewardUpdateData
+                        .totalRewardAmountInWei,
+                    maxRewardAmountInWei: _rewardUpdateData
+                        .maxRewardAmountInWei,
+                    caller: _msgSender()
+                })
             );
         }
 
         // Removing IOU Rewards (Switching from Reward Type 1 or 3 to 2)
         if (
             (currentDetails.rewardType == 1 ||
-                currentDetails.rewardType == 3) && _newRewards.rewardType == 2
+                currentDetails.rewardType == 3) &&
+            _rewardUpdateData.rewardType == 2
         ) {
             // Logic to transfer ERC20 tokens from the community contract back to the owner
             ICapxCommunityQuest(communityAddress).disableQuest(
-                _newIOURewards.questNumber
+                _rewardUpdateData.questNumber
             );
         }
 
@@ -454,15 +473,16 @@ contract CapxCommunityQuestForger is
         if (
             (currentDetails.rewardType == 1 ||
                 currentDetails.rewardType == 3) &&
-            (_newRewards.rewardType == 3 || _newRewards.rewardType == 1)
+            (_rewardUpdateData.rewardType == 3 ||
+                _rewardUpdateData.rewardType == 1)
         ) {
-            bool _maxParticipantsIncreased = _newRewards.maxParticipants >
+            bool _maxParticipantsIncreased = _rewardUpdateData.maxParticipants >
                 currentDetails.maxParticipants;
 
             ICapxCommunityQuest(communityAddress).updateTotalRewards(
                 _msgSender(),
                 currentDetails.questNumber,
-                _newIOURewards.totalRewardAmountInWei,
+                _rewardUpdateData.totalRewardAmountInWei,
                 _maxParticipantsIncreased
             );
         }
@@ -472,30 +492,36 @@ contract CapxCommunityQuestForger is
         string memory _questId,
         uint256 _newRewardType,
         uint256 _oldRewardType,
-        ICapxReputationScore.QuestDTO calldata _newReputationRewards
+        RewardTypeDTO calldata _rewardUpdateData
     ) internal {
         if (_oldRewardType == 1 && _newRewardType == 2) {
-            capxReputationScore.setQuestDetails(_newReputationRewards);
+            capxReputationScore.setQuestDetails(
+                ICapxReputationScore.QuestDTO({
+                    communityQuestId: _questId,
+                    reputationType: _rewardUpdateData.reputationType,
+                    maxReputationScore: _rewardUpdateData.maxReputationScore
+                })
+            );
         } else if (_oldRewardType == 2 && _newRewardType == 1) {
-            capxReputationScore.setQuestDetails(
-                ICapxReputationScore.QuestDTO({
-                    communityQuestId: _questId,
-                    reputationType: 0,
-                    maxReputationScore: 0
-                })
-            );
+            capxReputationScore.disableQuest(_questId);
         } else if (_oldRewardType == 2 && _newRewardType == 3) {
-            capxReputationScore.setQuestDetails(_newReputationRewards);
-        } else if (_oldRewardType == 3 && _newRewardType == 1) {
             capxReputationScore.setQuestDetails(
                 ICapxReputationScore.QuestDTO({
                     communityQuestId: _questId,
-                    reputationType: 0,
-                    maxReputationScore: 0
+                    reputationType: _rewardUpdateData.reputationType,
+                    maxReputationScore: _rewardUpdateData.maxReputationScore
                 })
             );
+        } else if (_oldRewardType == 3 && _newRewardType == 1) {
+            capxReputationScore.disableQuest(_questId);
         } else if (_oldRewardType == 3 && _newRewardType == 2) {
-            capxReputationScore.setQuestDetails(_newReputationRewards);
+            capxReputationScore.setQuestDetails(
+                ICapxReputationScore.QuestDTO({
+                    communityQuestId: _questId,
+                    reputationType: _rewardUpdateData.reputationType,
+                    maxReputationScore: _rewardUpdateData.maxReputationScore
+                })
+            );
         }
     }
 
@@ -524,6 +550,17 @@ contract CapxCommunityQuestForger is
         if (_capxCommunityQuestAddress == address(0))
             revert ZeroAddressNotAllowed();
         capxCommunityQuest = _capxCommunityQuestAddress;
+    }
+
+    function setCapxReputationContractAddress(
+        address _capxReputationContractAddress
+    ) public onlyOwner {
+        if (_capxReputationContractAddress == address(0))
+            revert ZeroAddressNotAllowed();
+
+        capxReputationScore = ICapxReputationScore(
+            _capxReputationContractAddress
+        );
     }
 
     function updateCommunityOwner(

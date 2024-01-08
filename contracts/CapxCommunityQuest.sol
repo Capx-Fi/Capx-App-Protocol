@@ -28,7 +28,7 @@ contract CapxCommunityQuest is
 
     ICapxCommunityQuestForger public capxCommunityQuestForger;
 
-    mapping(string => uint256) private communityQuestToId;
+    mapping(string => uint256) public communityQuestToId;
     mapping(uint256 => bool) public isCommunityQuest;
     mapping(uint256 => CapxQuestDetails) public communityQuestDetails;
     mapping(address => uint256) private lastKnownBalance;
@@ -98,28 +98,23 @@ contract CapxCommunityQuest is
         QuestDTO memory quest
     ) external nonReentrant whenNotPaused onlyForger {
         // Transfer tokens.
-        ITokenPoweredByCapx(quest.rewardToken).addToWhitelist(address(this));
         IERC20(quest.rewardToken).safeTransferFrom(
             quest.caller,
             address(this),
             quest.totalRewardAmountInWei
         );
+
         if (
             IERC20(quest.rewardToken).balanceOf(address(this)) -
                 lastKnownBalance[quest.rewardToken] <
             quest.totalRewardAmountInWei
         ) revert TotalRewardsExceedsAvailableBalance();
 
-        CapxQuestDetails memory currCapxQuest = communityQuestDetails[
-            quest.questNumber
-        ];
         string memory _communityQuestId = string(
             abi.encodePacked(communityId, "_", uintToStr(quest.questNumber))
         );
-        if (currCapxQuest.rewardToken != address(0)) revert QuestIdUsed();
 
-        // Fill up the Quest Details.
-        currCapxQuest = CapxQuestDetails({
+        communityQuestDetails[quest.questNumber] = CapxQuestDetails({
             rewardToken: quest.rewardToken,
             totalRewardAmountInWei: quest.totalRewardAmountInWei,
             maxRewardAmountInWei: quest.maxRewardAmountInWei,

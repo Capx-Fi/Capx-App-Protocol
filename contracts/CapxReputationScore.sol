@@ -14,7 +14,7 @@ contract ReputationContract is
     Pausable,
     ICapxReputationScore
 {
-    ICapxID capxID;
+    ICapxID public capxID;
 
     address public forgerContract;
 
@@ -38,12 +38,44 @@ contract ReputationContract is
             revert InvalidReputationType();
         if (quest.maxReputationScore <= 0) revert InvalidMaxReputationScore();
 
-        communityQuestDetails[quest.communityQuestId] = CapxQuestDetails({
-            reputationType: quest.reputationType,
-            maxReputationScore: quest.maxReputationScore,
-            claimedUsers: 0,
-            claimedReputationScore: 0
-        });
+        // For handling case : reward type 2->3 or 3->2
+        // If the old reputationType and the new reputationType are same then retain the claimedUsers and claimedReputationScore.
+        if (
+            communityQuestDetails[quest.communityQuestId].reputationType ==
+            quest.reputationType
+        ) {
+            communityQuestDetails[quest.communityQuestId] = CapxQuestDetails({
+                reputationType: quest.reputationType,
+                maxReputationScore: quest.maxReputationScore,
+                claimedUsers: communityQuestDetails[quest.communityQuestId]
+                    .claimedUsers,
+                claimedReputationScore: communityQuestDetails[
+                    quest.communityQuestId
+                ].claimedReputationScore
+            });
+        } else {
+            // Incase they change the reputationType, claimedUsers and claimedReputationScore turns to 0.
+            communityQuestDetails[quest.communityQuestId] = CapxQuestDetails({
+                reputationType: quest.reputationType,
+                maxReputationScore: quest.maxReputationScore,
+                claimedUsers: 0,
+                claimedReputationScore: 0
+            });
+        }
+    }
+
+    function disableQuest(string memory _communityQuestId) external onlyForger {
+        CapxQuestDetails storage currCapxQuest = communityQuestDetails[
+            _communityQuestId
+        ];
+
+        if (
+            currCapxQuest.reputationType == 0 ||
+            currCapxQuest.maxReputationScore == 0
+        ) revert RewardTypeNotInitialised();
+
+        currCapxQuest.reputationType = 0;
+        currCapxQuest.maxReputationScore = 0;
     }
 
     // Function to claim reputation scores
@@ -54,15 +86,12 @@ contract ReputationContract is
         uint256 _reputationScore,
         address _receiver
     ) external onlyForger nonReentrant whenNotPaused {
-        require(
-            _receiver != address(0),
-            "CapxReputation: Invalid receiver address"
-        );
+        if (_receiver == address(0)) revert ZeroAddressNotAllowed();
 
         if (claimedUsers[_communityQuestId][_receiver][_timestamp] == true)
-            revert("CapxReputation: User has already claimed.");
+            revert AlreadyClaimed();
 
-        CapxQuestDetails memory currCapxQuest = communityQuestDetails[
+        CapxQuestDetails storage currCapxQuest = communityQuestDetails[
             _communityQuestId
         ];
 
@@ -77,9 +106,10 @@ contract ReputationContract is
         if (currCapxQuest.reputationType != _reputationType)
             revert ReputationTypeMisMatch();
 
-        ICapxID.CapxIDMetadata memory metadata = capxID.capxIDMetadata(
-            _receiver
-        );
+        claimedUsers[_communityQuestId][_receiver][_timestamp] = true;
+
+        (, uint256 capxIdMintId, uint256 capxIdReputationScore) = capxID
+            .capxIDMetadata(_receiver);
 
         if (_reputationType == 1) {
             reputationScore[_receiver].social += _reputationScore;
@@ -88,16 +118,16 @@ contract ReputationContract is
         } else if (_reputationType == 3) {
             reputationScore[_receiver].game += _reputationScore;
         } else {
-            revert("CapxReputation: Invalid reputation type");
+            revert InvalidReputationType();
         }
 
-        uint256 updatedReputationScore = metadata.reputationScore +
+        uint256 updatedReputationScore = capxIdReputationScore +
             _reputationScore;
 
         currCapxQuest.claimedUsers += 1;
         currCapxQuest.claimedReputationScore += _reputationScore;
 
-        capxID.updateReputationScore(metadata.mintID, updatedReputationScore);
+        capxID.updateReputationScore(capxIdMintId, updatedReputationScore);
     }
 
     function updateReputationScore(
@@ -148,10 +178,7 @@ contract ReputationContract is
     }
 
     function setForgerContract(address _forgerContract) external onlyOwner {
-        require(
-            _forgerContract != address(0),
-            "CapxReputation: Invalid address"
-        );
+        if (_forgerContract == address(0)) revert ZeroAddressNotAllowed();
         forgerContract = _forgerContract;
     }
 }

@@ -13,7 +13,7 @@ abstract contract TokenPoweredByCapx {
         string memory name_, 
         string memory symbol_,
         address owner_,
-        address capxQuestForger_,
+        address capxCommunityQuestForger_,
         uint256 totalCappedSupply_
     ) public virtual;
 }
