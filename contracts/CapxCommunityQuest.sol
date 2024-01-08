@@ -241,40 +241,45 @@ contract CapxCommunityQuest is
         lastKnownBalance[currCapxQuest.rewardToken] += pendingRewards;
     }
 
-    function updateTotalRewards(
+    function updateRewards(
         address _caller,
         uint256 _questNumber,
-        uint256 _rewardAmount,
-        bool _maxParticipantsIncreased
+        uint256 _totalRewardAmountInWei,
+        uint256 _maxRewardAmountInWei
     ) external nonReentrant onlyForger {
         if (isCommunityQuest[_questNumber] == false) revert InvalidQuestId();
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[
             _questNumber
         ];
 
-        if (_maxParticipantsIncreased) {
-            // Max Participants Increased. Transfer tokens into the contract.
-            IERC20(currCapxQuest.rewardToken).safeTransferFrom(
-                _caller,
-                address(this),
-                _rewardAmount
-            );
-            lastKnownBalance[currCapxQuest.rewardToken] += _rewardAmount;
-            currCapxQuest.totalRewardAmountInWei += _rewardAmount;
-        } else {
-            // Max Participants Decreased. Transfer tokens from the contract to owner.
-            uint256 updatedRewardAmtInWei = currCapxQuest
-                .totalRewardAmountInWei - _rewardAmount;
-            if (updatedRewardAmtInWei < currCapxQuest.claimedRewards)
+        if (currCapxQuest.totalRewardAmountInWei > _totalRewardAmountInWei) {
+            // Transfer from contract to owner.
+            uint256 _excessAmount = currCapxQuest.totalRewardAmountInWei -
+                _totalRewardAmountInWei;
+            if (_excessAmount < currCapxQuest.claimedRewards)
                 revert ClaimedRewardsExceedTotalRewards();
-            currCapxQuest.totalRewardAmountInWei = updatedRewardAmtInWei;
-            lastKnownBalance[currCapxQuest.rewardToken] -= _rewardAmount;
 
+            lastKnownBalance[currCapxQuest.rewardToken] -= _excessAmount;
             IERC20(currCapxQuest.rewardToken).safeTransfer(
                 owner(),
-                _rewardAmount
+                _excessAmount
             );
+        } else {
+            // Transfer to contract from owner.
+            uint256 _differentAmount = _totalRewardAmountInWei -
+                currCapxQuest.totalRewardAmountInWei;
+
+            if (_differentAmount > 0) {
+                lastKnownBalance[currCapxQuest.rewardToken] += _differentAmount;
+                IERC20(currCapxQuest.rewardToken).safeTransferFrom(
+                    _caller,
+                    address(this),
+                    _differentAmount
+                );
+            }
         }
+        currCapxQuest.totalRewardAmountInWei = _totalRewardAmountInWei;
+        currCapxQuest.maxRewardAmountInWei = _maxRewardAmountInWei;
     }
 
     function withdrawTokens(

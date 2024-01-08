@@ -28,11 +28,15 @@ interface ICapxReputationScore {
         uint256 gameScore;
     }
 
+    struct ReputationClaimDetails {
+        uint256 claimedUsers;
+        uint256 claimedReputationScore;
+    }
+
     struct CapxQuestDetails {
         uint256 reputationType;
         uint256 maxReputationScore;
-        uint256 claimedUsers;
-        uint256 claimedReputationScore;
+        mapping(uint256 => ReputationClaimDetails) reputationClaims;
     }
 
     struct QuestDTO {

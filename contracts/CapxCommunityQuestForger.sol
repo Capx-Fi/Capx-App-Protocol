@@ -344,13 +344,16 @@ contract CapxCommunityQuestForger is
     function updateIOURewards(
         string calldata _communityId,
         uint256 _questNumber,
-        uint256 _newTotalRewardAmountInWeiIncrement,
+        uint256 _newTotalRewardAmountInWei,
+        uint256 _newMaxRewardAmountInWei,
         uint256 _newMaxParticipants
     ) external onlyCommunityAuthorized(_communityId) nonReentrant {
-        if (
-            _newTotalRewardAmountInWeiIncrement <= 0 || _newMaxParticipants <= 0
-        ) revert InvalidIOURewards();
+        if (_newTotalRewardAmountInWei <= 0 || _newMaxParticipants <= 0)
+            revert InvalidIOURewards();
         string memory _questId = getQuestId(_communityId, _questNumber);
+
+        if (isCapxCommunityQuest[_questId] == address(0))
+            revert QuestIdDoesNotExist();
 
         address communityAddress = isCapxCommunityQuest[_questId];
 
@@ -360,14 +363,11 @@ contract CapxCommunityQuestForger is
 
         if (currentDetails.rewardType == 2) revert InvalidRewardType();
 
-        bool _maxParticipantsIncreased = _newMaxParticipants >
-            currentDetails.maxParticipants;
-
-        ICapxCommunityQuest(communityAddress).updateTotalRewards(
+        ICapxCommunityQuest(communityAddress).updateRewards(
             _msgSender(),
             _questNumber,
-            _newTotalRewardAmountInWeiIncrement,
-            _maxParticipantsIncreased
+            _newTotalRewardAmountInWei,
+            _newMaxRewardAmountInWei
         );
         currentDetails.maxParticipants = _newMaxParticipants;
     }
@@ -379,6 +379,9 @@ contract CapxCommunityQuestForger is
         uint256 _newMaxReputationScore
     ) external nonReentrant onlyCommunityAuthorized(_communityId) {
         string memory _questId = getQuestId(_communityId, _questNumber);
+
+        if (isCapxCommunityQuest[_questId] == address(0))
+            revert QuestIdDoesNotExist();
 
         CapxQuestDetails storage currentDetails = communityQuestDetails[
             _questId
@@ -410,19 +413,23 @@ contract CapxCommunityQuestForger is
             _rewardUpdateData.questNumber
         );
 
+        if (isCapxCommunityQuest[_questId] == address(0))
+            revert QuestIdDoesNotExist();
+
         CapxQuestDetails storage currentDetails = communityQuestDetails[
             _questId
         ];
+
         if (currentDetails.rewardType == _rewardUpdateData.rewardType)
             revert UseRewardTypeSpecificFunctions();
 
         address communityAddress = community[_rewardUpdateData.communityId];
 
         handleIOURewards(communityAddress, _rewardUpdateData, currentDetails);
+
         handleReputationRewards(
             _questId,
             _rewardUpdateData.rewardType,
-            currentDetails.rewardType,
             _rewardUpdateData
         );
         currentDetails.maxParticipants = _rewardUpdateData.maxParticipants;
@@ -464,8 +471,11 @@ contract CapxCommunityQuestForger is
             _rewardUpdateData.rewardType == 2
         ) {
             // Logic to transfer ERC20 tokens from the community contract back to the owner
-            ICapxCommunityQuest(communityAddress).disableQuest(
-                _rewardUpdateData.questNumber
+            ICapxCommunityQuest(communityAddress).updateRewards(
+                _msgSender(),
+                currentDetails.questNumber,
+                0,
+                0
             );
         }
 
@@ -476,14 +486,12 @@ contract CapxCommunityQuestForger is
             (_rewardUpdateData.rewardType == 3 ||
                 _rewardUpdateData.rewardType == 1)
         ) {
-            bool _maxParticipantsIncreased = _rewardUpdateData.maxParticipants >
-                currentDetails.maxParticipants;
-
-            ICapxCommunityQuest(communityAddress).updateTotalRewards(
+            // Check if rewardToken is updated,
+            ICapxCommunityQuest(communityAddress).updateRewards(
                 _msgSender(),
                 currentDetails.questNumber,
                 _rewardUpdateData.totalRewardAmountInWei,
-                _maxParticipantsIncreased
+                _rewardUpdateData.maxRewardAmountInWei
             );
         }
     }
@@ -491,30 +499,11 @@ contract CapxCommunityQuestForger is
     function handleReputationRewards(
         string memory _questId,
         uint256 _newRewardType,
-        uint256 _oldRewardType,
         RewardTypeDTO calldata _rewardUpdateData
     ) internal {
-        if (_oldRewardType == 1 && _newRewardType == 2) {
-            capxReputationScore.setQuestDetails(
-                ICapxReputationScore.QuestDTO({
-                    communityQuestId: _questId,
-                    reputationType: _rewardUpdateData.reputationType,
-                    maxReputationScore: _rewardUpdateData.maxReputationScore
-                })
-            );
-        } else if (_oldRewardType == 2 && _newRewardType == 1) {
+        if (_newRewardType == 1) {
             capxReputationScore.disableQuest(_questId);
-        } else if (_oldRewardType == 2 && _newRewardType == 3) {
-            capxReputationScore.setQuestDetails(
-                ICapxReputationScore.QuestDTO({
-                    communityQuestId: _questId,
-                    reputationType: _rewardUpdateData.reputationType,
-                    maxReputationScore: _rewardUpdateData.maxReputationScore
-                })
-            );
-        } else if (_oldRewardType == 3 && _newRewardType == 1) {
-            capxReputationScore.disableQuest(_questId);
-        } else if (_oldRewardType == 3 && _newRewardType == 2) {
+        } else {
             capxReputationScore.setQuestDetails(
                 ICapxReputationScore.QuestDTO({
                     communityQuestId: _questId,

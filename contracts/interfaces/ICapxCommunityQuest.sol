@@ -38,11 +38,11 @@ interface ICapxCommunityQuest {
         uint256 _rewardAmount
     ) external returns (address);
 
-    function updateTotalRewards(
+    function updateRewards(
         address caller,
         uint256 _questNumber,
-        uint256 _rewardAmount,
-        bool _maxParticipantsIncreased
+        uint256 totalRewardAmountInWei,
+        uint256 maxRewardAmountInWei
     ) external;
 
     function setQuestDetails(QuestDTO memory quest) external;

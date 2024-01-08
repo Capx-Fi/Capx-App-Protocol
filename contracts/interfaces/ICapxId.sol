@@ -8,18 +8,25 @@ interface ICapxID {
         uint256 reputationScore;
     }
 
-    function capxIDMetadata(address user)
+    function capxIDMetadata(
+        address user
+    )
         external
         view
-        returns (CapxIDMetadata memory);
+        returns (
+            string memory username,
+            uint256 mintID,
+            uint256 reputationScore
+        );
 
-    function updateReputationScore(uint256 tokenId, uint256 reputationScore)
-        external;
+    function updateReputationScore(
+        uint256 tokenId,
+        uint256 reputationScore
+    ) external;
 
-    function getCapxIDMetadata(string calldata _username)
-        external
-        view
-        returns (CapxIDMetadata memory);
+    function getCapxIDMetadata(
+        string calldata _username
+    ) external view returns (CapxIDMetadata memory);
 
     function capxID(string calldata username) external view returns (uint256);
 

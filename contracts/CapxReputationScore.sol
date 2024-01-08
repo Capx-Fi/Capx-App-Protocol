@@ -38,30 +38,11 @@ contract ReputationContract is
             revert InvalidReputationType();
         if (quest.maxReputationScore <= 0) revert InvalidMaxReputationScore();
 
-        // For handling case : reward type 2->3 or 3->2
-        // If the old reputationType and the new reputationType are same then retain the claimedUsers and claimedReputationScore.
-        if (
-            communityQuestDetails[quest.communityQuestId].reputationType ==
-            quest.reputationType
-        ) {
-            communityQuestDetails[quest.communityQuestId] = CapxQuestDetails({
-                reputationType: quest.reputationType,
-                maxReputationScore: quest.maxReputationScore,
-                claimedUsers: communityQuestDetails[quest.communityQuestId]
-                    .claimedUsers,
-                claimedReputationScore: communityQuestDetails[
-                    quest.communityQuestId
-                ].claimedReputationScore
-            });
-        } else {
-            // Incase they change the reputationType, claimedUsers and claimedReputationScore turns to 0.
-            communityQuestDetails[quest.communityQuestId] = CapxQuestDetails({
-                reputationType: quest.reputationType,
-                maxReputationScore: quest.maxReputationScore,
-                claimedUsers: 0,
-                claimedReputationScore: 0
-            });
-        }
+        // Update the quest details
+        communityQuestDetails[quest.communityQuestId].reputationType = quest
+            .reputationType;
+        communityQuestDetails[quest.communityQuestId].maxReputationScore = quest
+            .maxReputationScore;
     }
 
     function disableQuest(string memory _communityQuestId) external onlyForger {
@@ -124,8 +105,10 @@ contract ReputationContract is
         uint256 updatedReputationScore = capxIdReputationScore +
             _reputationScore;
 
-        currCapxQuest.claimedUsers += 1;
-        currCapxQuest.claimedReputationScore += _reputationScore;
+        currCapxQuest.reputationClaims[_reputationType].claimedUsers += 1;
+        currCapxQuest
+            .reputationClaims[_reputationType]
+            .claimedReputationScore += _reputationScore;
 
         capxID.updateReputationScore(capxIdMintId, updatedReputationScore);
     }
@@ -180,5 +163,35 @@ contract ReputationContract is
     function setForgerContract(address _forgerContract) external onlyOwner {
         if (_forgerContract == address(0)) revert ZeroAddressNotAllowed();
         forgerContract = _forgerContract;
+    }
+
+    function getQuestDetail(
+        string memory _communityQuestId
+    )
+        external
+        view
+        returns (
+            uint256 reputationType,
+            uint256 maxReputationScore,
+            uint256 totalClaimedUsers,
+            uint256 claimedReputationScore
+        )
+    {
+        uint256 _reputationType = communityQuestDetails[_communityQuestId]
+            .reputationType;
+        uint256 _maxReputationScore = communityQuestDetails[_communityQuestId]
+            .maxReputationScore;
+        uint256 _totalClaimedUsers = communityQuestDetails[_communityQuestId]
+            .reputationClaims[reputationType]
+            .claimedUsers;
+        uint256 _claimedReputationScore = communityQuestDetails[
+            _communityQuestId
+        ].reputationClaims[reputationType].claimedReputationScore;
+        return (
+            _reputationType,
+            _maxReputationScore,
+            _totalClaimedUsers,
+            _claimedReputationScore
+        );
     }
 }
