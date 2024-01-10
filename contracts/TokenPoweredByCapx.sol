@@ -62,11 +62,12 @@ contract TokenPoweredByCapx is IERC20, IERC20Metadata, Ownable, Pausable, Initia
         string memory name_, 
         string memory symbol_,
         address owner_,
-        address capxCommunityQuestForger,
+        address capxQuestForger_,
+        uint256 initialSupply_,
         uint256 totalCappedSupply_
     ) checkIsAddressValid(owner_) external {
         require(!_initialized,"TokenPoweredByCapx: Already Initialized.");
-        require(address(capxCommunityQuestForger) != address(0),"TokenPoweredByCapx: Invalid CapxQuestForger.");
+        require(address(capxQuestForger_) != address(0),"TokenPoweredByCapx: Invalid CapxQuestForger.");
         _name = name_;
         _symbol = symbol_;
         _decimal = 18;
@@ -75,8 +76,11 @@ contract TokenPoweredByCapx is IERC20, IERC20Metadata, Ownable, Pausable, Initia
 
         // Transfer Ownership
         _transferOwnership(owner_);
-        authorized[capxCommunityQuestForger] = true;
-        whitelist[capxCommunityQuestForger] = true;
+        authorized[capxQuestForger_] = true;
+        whitelist[capxQuestForger_] = true;
+
+        // Mint Initial Supply
+        _mint(owner_, initialSupply_);
     }
 
     /**
