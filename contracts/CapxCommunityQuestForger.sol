@@ -361,7 +361,10 @@ contract CapxCommunityQuestForger is
             _questId
         ];
 
-        if (currentDetails.rewardType == 2) revert InvalidRewardType();
+        if (currentDetails.active == true) revert QuestMustBeDisabled();
+
+        if (currentDetails.rewardType != 1 && currentDetails.rewardType != 3)
+            revert InvalidRewardType();
 
         ICapxCommunityQuest(communityAddress).updateRewards(
             _msgSender(),
@@ -387,7 +390,9 @@ contract CapxCommunityQuestForger is
             _questId
         ];
 
-        if (currentDetails.rewardType == 1) revert InvalidRewardType();
+        if (currentDetails.active == true) revert QuestMustBeDisabled();
+        if (currentDetails.rewardType != 2 && currentDetails.rewardType != 3)
+            revert InvalidRewardType();
 
         if (address(capxReputationScore) == address(0))
             revert CapxReputationContractNotInitialised();
@@ -419,6 +424,8 @@ contract CapxCommunityQuestForger is
         CapxQuestDetails storage currentDetails = communityQuestDetails[
             _questId
         ];
+
+        if (currentDetails.active == true) revert QuestMustBeDisabled();
 
         if (currentDetails.rewardType == _rewardUpdateData.rewardType)
             revert UseRewardTypeSpecificFunctions();
@@ -605,10 +612,7 @@ contract CapxCommunityQuestForger is
         string calldata _communityId,
         uint256 _questNumber
     ) external nonReentrant onlyCommunityAuthorized(_communityId) {
-        (
-            address _communityAddress,
-            string memory _questId
-        ) = getQuestIdAndContractAddress(_communityId, _questNumber);
+        string memory _questId = getQuestId(_communityId, _questNumber);
 
         if (isCapxCommunityQuest[_questId] == address(0))
             revert InvalidQuestNumber();
@@ -619,9 +623,6 @@ contract CapxCommunityQuestForger is
 
         if (currCapxQuest.active == false) revert QuestAlreadyDisabled();
 
-        if (currCapxQuest.rewardType == 1 || currCapxQuest.rewardType == 3) {
-            ICapxCommunityQuest(_communityAddress).disableQuest(_questNumber);
-        }
         currCapxQuest.active = false;
     }
 
@@ -629,10 +630,7 @@ contract CapxCommunityQuestForger is
         string calldata _communityId,
         uint256 _questNumber
     ) external nonReentrant onlyCommunityAuthorized(_communityId) {
-        (
-            address _communityAddress,
-            string memory _questId
-        ) = getQuestIdAndContractAddress(_communityId, _questNumber);
+        string memory _questId = getQuestId(_communityId, _questNumber);
 
         if (isCapxCommunityQuest[_questId] == address(0))
             revert InvalidQuestNumber();
@@ -642,13 +640,6 @@ contract CapxCommunityQuestForger is
         ];
 
         if (currCapxQuest.active == true) revert QuestAlreadyActive();
-
-        if (currCapxQuest.rewardType == 1 || currCapxQuest.rewardType == 3) {
-            ICapxCommunityQuest(_communityAddress).enableQuest(
-                _questNumber,
-                _msgSender()
-            );
-        }
 
         currCapxQuest.active = true;
     }
@@ -696,12 +687,41 @@ contract CapxCommunityQuestForger is
         return (_questId);
     }
 
-    function withdrawTokens(
+    function withdrawQuestRewards(
         string calldata _communityId,
-        address[] memory tokens
+        uint256 _questNumber
+    ) external nonReentrant onlyCommunityAuthorized(_communityId) {
+        string memory _questId = getQuestId(_communityId, _questNumber);
+        address _communityAddress = isCapxCommunityQuest[_questId];
+        if (_communityAddress == address(0)) revert InvalidQuestNumber();
+
+        CapxQuestDetails storage currCapxQuest = communityQuestDetails[
+            _questId
+        ];
+        if (currCapxQuest.active == true) revert QuestMustBeDisabled();
+        if (currCapxQuest.rewardType != 1 && currCapxQuest.rewardType != 3)
+            revert InvalidRewardType();
+        ICapxCommunityQuest(_communityAddress).withdrawQuestRewards(
+            _questNumber
+        );
+    }
+
+    function withdrawAllQuestRewards(
+        string calldata _communityId
     ) external nonReentrant onlyCommunityOwners(_communityId) {
         address communityAddress = community[_communityId];
-        ICapxCommunityQuest(communityAddress).withdrawTokens(tokens);
+        for (
+            uint256 _questNumber = 1;
+            _questNumber <= communityQuestCount[_communityId];
+            _questNumber++
+        ) {
+            string memory _questId = getQuestId(_communityId, _questNumber);
+            CapxQuestDetails storage currCapxQuest = communityQuestDetails[
+                _questId
+            ];
+            currCapxQuest.active = false;
+        }
+        ICapxCommunityQuest(communityAddress).withdrawAllQuestRewards();
     }
 
     function withdrawETH(
@@ -709,5 +729,18 @@ contract CapxCommunityQuestForger is
     ) external nonReentrant onlyCommunityOwners(_communityId) {
         address communityAddress = community[_communityId];
         ICapxCommunityQuest(communityAddress).withdrawETH(_msgSender());
+    }
+
+    function toggleCommunityActive(
+        string calldata _communityId
+    )
+        external
+        onlyCommunityAuthorized(_communityId)
+        returns (bool isCommunityActive)
+    {
+        address communityAddress = community[_communityId];
+        bool _isCommunityActive = ICapxCommunityQuest(communityAddress)
+            .toggleCommunityActive();
+        return _isCommunityActive;
     }
 }

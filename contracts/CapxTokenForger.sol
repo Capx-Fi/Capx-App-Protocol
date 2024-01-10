@@ -13,7 +13,7 @@ abstract contract TokenPoweredByCapx {
         string memory name_, 
         string memory symbol_,
         address owner_,
-        address capxQuestForger_,
+        address capxCommunityQuestForger_,
         uint256 initialSupply_,
         uint256 totalCappedSupply_
     ) public virtual;
@@ -22,7 +22,7 @@ abstract contract TokenPoweredByCapx {
 contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
 
     address public tokenPoweredByCapx;
-    address public capxQuestForger;
+    address public capxCommunityQuestForger;
     mapping(address => bool) public tokensPoweredByCapx;
 
     event NewTokenPoweredByCapx (
@@ -78,10 +78,10 @@ contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         tokenPoweredByCapx = _tokenPoweredByCapx;
     }
 
-    function updateCapxQuestForger(
-        address _capxQuestForger
-    ) external onlyOwner checkIsAddressValid(_capxQuestForger) whenNotPaused {
-        capxQuestForger = _capxQuestForger;
+    function updatecapxCommunityQuestForger(
+        address _capxCommunityQuestForger
+    ) external onlyOwner checkIsAddressValid(_capxCommunityQuestForger) whenNotPaused {
+        capxCommunityQuestForger = _capxCommunityQuestForger;
     }
 
     function createTokenPoweredByCapx(
@@ -91,7 +91,7 @@ contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         uint256 _initialSupplyInWei,
         uint256 _totalCappedSupplyInWei
     ) external onlyOwner checkIsAddressValid(_owner) nonReentrant() whenNotPaused virtual returns(address _tokenPoweredByCapx) {
-        require(capxQuestForger != address(0),"CapxQuestForger NOT configured.");
+        require(capxCommunityQuestForger != address(0),"capxCommunityQuestForger NOT configured.");
         require(_totalCappedSupplyInWei != 0,"Token's Maximum Capped Supply cannot be ZERO");
         _tokenPoweredByCapx = Clones.clone(tokenPoweredByCapx);
         tokensPoweredByCapx[_tokenPoweredByCapx] = true;
@@ -109,7 +109,7 @@ contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
             _name,
             _symbol,
             _owner,
-            capxQuestForger,
+            capxCommunityQuestForger,
             _initialSupplyInWei,
             _totalCappedSupplyInWei
         );

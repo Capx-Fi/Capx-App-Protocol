@@ -202,7 +202,7 @@ contract CapxCommunityQuest is
         return currCapxQuest.rewardToken;
     }
 
-    function disableQuest(
+    function withdrawQuestRewards(
         uint256 _questNumber
     ) external nonReentrant onlyForger {
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[
@@ -215,30 +215,22 @@ contract CapxCommunityQuest is
             pendingRewards
         ) revert NoRewardsToWithdraw();
 
-        lastKnownBalance[currCapxQuest.rewardToken] -= pendingRewards;
+        if (pendingRewards > 0) {
+            lastKnownBalance[currCapxQuest.rewardToken] -= pendingRewards;
 
-        require(
-            IERC20(currCapxQuest.rewardToken).approve(owner(), pendingRewards)
-        );
-        IERC20(currCapxQuest.rewardToken).safeTransfer(owner(), pendingRewards);
-    }
-
-    function enableQuest(
-        uint256 _questNumber,
-        address _authorizedCaller
-    ) external nonReentrant onlyForger {
-        CapxQuestDetails storage currCapxQuest = communityQuestDetails[
-            _questNumber
-        ];
-        uint256 pendingRewards = currCapxQuest.totalRewardAmountInWei -
-            currCapxQuest.claimedRewards;
-        IERC20(currCapxQuest.rewardToken).safeTransferFrom(
-            _authorizedCaller,
-            address(this),
-            pendingRewards
-        );
-
-        lastKnownBalance[currCapxQuest.rewardToken] += pendingRewards;
+            require(
+                IERC20(currCapxQuest.rewardToken).approve(
+                    owner(),
+                    pendingRewards
+                )
+            );
+            IERC20(currCapxQuest.rewardToken).safeTransfer(
+                owner(),
+                pendingRewards
+            );
+        }
+        currCapxQuest.maxRewardAmountInWei = 0;
+        currCapxQuest.totalRewardAmountInWei = 0;
     }
 
     function updateRewards(
@@ -282,15 +274,44 @@ contract CapxCommunityQuest is
         currCapxQuest.maxRewardAmountInWei = _maxRewardAmountInWei;
     }
 
-    function withdrawTokens(
-        address[] memory tokens
-    ) external nonReentrant onlyForger {
+    function withdrawAllQuestRewards() external nonReentrant onlyForger {
         isCommunityActive = false;
-        for (uint256 i = 0; i < tokens.length; i++) {
-            IERC20(tokens[i]).safeTransfer(
-                _msgSender(),
-                IERC20(tokens[i]).balanceOf(address(this))
-            );
+        for (
+            uint256 _questNumber = 1;
+            _questNumber <= communityQuestCount;
+            _questNumber++
+        ) {
+            CapxQuestDetails storage currCapxQuest = communityQuestDetails[
+                _questNumber
+            ];
+            if (currCapxQuest.totalRewardAmountInWei != 0) {
+                uint256 pendingRewards = currCapxQuest.totalRewardAmountInWei -
+                    currCapxQuest.claimedRewards;
+                if (
+                    IERC20(currCapxQuest.rewardToken).balanceOf(address(this)) <
+                    pendingRewards
+                ) revert NoRewardsToWithdraw();
+
+                if (pendingRewards > 0) {
+                    lastKnownBalance[
+                        currCapxQuest.rewardToken
+                    ] -= pendingRewards;
+
+                    require(
+                        IERC20(currCapxQuest.rewardToken).approve(
+                            owner(),
+                            pendingRewards
+                        )
+                    );
+                    IERC20(currCapxQuest.rewardToken).safeTransfer(
+                        owner(),
+                        pendingRewards
+                    );
+                }
+            }
+
+            currCapxQuest.maxRewardAmountInWei = 0;
+            currCapxQuest.totalRewardAmountInWei = 0;
         }
     }
 
@@ -306,5 +327,10 @@ contract CapxCommunityQuest is
                 )
             )
         );
+    }
+
+    function toggleCommunityActive() external onlyForger returns (bool) {
+        isCommunityActive = !isCommunityActive;
+        return isCommunityActive;
     }
 }

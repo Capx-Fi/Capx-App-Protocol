@@ -30,6 +30,7 @@ interface ICapxCommunityQuestForger {
     error AlreadyNotAuthorized();
     error UseRewardTypeSpecificFunctions();
     error InvalidIOURewards();
+    error QuestMustBeDisabled();
 
     struct CreateQuest {
         address rewardToken;

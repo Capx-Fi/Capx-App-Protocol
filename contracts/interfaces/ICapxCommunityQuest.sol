@@ -46,11 +46,8 @@ interface ICapxCommunityQuest {
     ) external;
 
     function setQuestDetails(QuestDTO memory quest) external;
-    function enableQuest(
-        uint256 _questNumber,
-        address authorizedCaller
-    ) external;
-    function disableQuest(uint256 _questNumber) external;
-    function withdrawTokens(address[] memory tokens) external;
+    function withdrawQuestRewards(uint256 _questNumber) external;
+    function withdrawAllQuestRewards() external;
     function withdrawETH(address caller) external;
+    function toggleCommunityActive() external returns (bool);
 }
