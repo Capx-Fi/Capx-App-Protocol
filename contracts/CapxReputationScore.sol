@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 
 contract ReputationContract is
     Ownable,
@@ -19,7 +20,7 @@ contract ReputationContract is
     address public forgerContract;
 
     mapping(address => ReputationScoreTypes) public reputationScore;
-    mapping(string => mapping(address => mapping(uint256 => bool)))
+    mapping(string => mapping(address => mapping(uint256 => uint256))) // block number
         private claimedUsers;
     mapping(string => CapxQuestDetails) public communityQuestDetails;
 
@@ -69,7 +70,7 @@ contract ReputationContract is
     ) external onlyForger nonReentrant whenNotPaused {
         if (_receiver == address(0)) revert ZeroAddressNotAllowed();
 
-        if (claimedUsers[_communityQuestId][_receiver][_timestamp] == true)
+        if (claimedUsers[_communityQuestId][_receiver][_timestamp] != 0)
             revert AlreadyClaimed();
 
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[
@@ -87,7 +88,7 @@ contract ReputationContract is
         if (currCapxQuest.reputationType != _reputationType)
             revert ReputationTypeMisMatch();
 
-        claimedUsers[_communityQuestId][_receiver][_timestamp] = true;
+        claimedUsers[_communityQuestId][_receiver][_timestamp] = block.number;
 
         (, uint256 capxIdMintId, uint256 capxIdReputationScore) = capxID
             .capxIDMetadata(_receiver);

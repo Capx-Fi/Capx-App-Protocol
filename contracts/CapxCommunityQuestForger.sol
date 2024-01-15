@@ -30,10 +30,15 @@ contract CapxCommunityQuestForger is
 
     address public claimSignerAddress;
     address public capxCommunityQuest;
+
+    string public capxCommunityId;
+    uint256 public taskCount;
+
     ICapxTokenForger public capxTokenForger;
     ICapxReputationScore public capxReputationScore;
 
     mapping(string => address) public isCapxCommunityQuest;
+    mapping(string => bool) public isCapxTask;
     mapping(address => bool) public isCapxCommunity;
     mapping(string => address) public community;
     mapping(address => address) private communityOwners;
@@ -41,6 +46,8 @@ contract CapxCommunityQuestForger is
     mapping(address => string) private communityAddresstoId;
     mapping(string => uint256) public communityQuestCount;
     mapping(string => CapxQuestDetails) public communityQuestDetails; // questId -> CapxQuestDetails
+    mapping(string => CapxTaskDetails) public taskDetails; // taskId -> CapxQuestDetails
+
     mapping(string => mapping(address => bool)) private communityAuthorized;
 
     constructor() initializer {}
@@ -54,6 +61,14 @@ contract CapxCommunityQuestForger is
 
     modifier onlyCommunityAuthorized(string calldata communityId) {
         if (!communityAuthorized[communityId][_msgSender()])
+            revert NotAuthorized();
+        _;
+    }
+
+    modifier onlyCapxCommunityAuthorized() {
+        if (community[capxCommunityId] == address(0))
+            revert CapxCommunityIdNotSet();
+        if (communityAuthorized[capxCommunityId][_msgSender()])
             revert NotAuthorized();
         _;
     }
@@ -231,6 +246,31 @@ contract CapxCommunityQuestForger is
         communityQuestCount[quest.communityId] += 1;
     }
 
+    function createTask(
+        CreateTask calldata task
+    ) external nonReentrant onlyCapxCommunityAuthorized whenNotPaused {
+        string memory _taskId = string(
+            abi.encodePacked(capxCommunityId, ":", uintToStr(task.taskNumber))
+        );
+        if (isCapxTask[_taskId] == true) revert TaskNumberUsed();
+
+        taskDetails[_taskId] = CapxTaskDetails({
+            taskNumber: task.taskNumber,
+            claimedParticipants: 0,
+            active: true
+        });
+
+        capxReputationScore.setQuestDetails(
+            ICapxReputationScore.QuestDTO({
+                communityQuestId: _taskId,
+                reputationType: task.reputationType,
+                maxReputationScore: task.maxReputationScore
+            })
+        );
+        isCapxTask[_taskId] = true;
+        taskCount += 1;
+    }
+
     function claim(
         bytes32 _messageHash,
         bytes calldata _signature,
@@ -341,6 +381,89 @@ contract CapxCommunityQuestForger is
         }
     }
 
+    function claimTask(
+        bytes32 _messageHash,
+        bytes calldata _signature,
+        bytes calldata _claimData
+    ) external whenNotPaused nonReentrant {
+        if (community[capxCommunityId] == address(0))
+            revert CapxCommunityIdNotSet();
+
+        if (
+            keccak256(abi.encodePacked(_msgSender(), _claimData)) !=
+            _messageHash
+        ) revert InvalidMessageHash();
+
+        if (recoverSigner(_messageHash, _signature) != claimSignerAddress)
+            revert InvalidSigner();
+
+        (
+            string memory _taskId,
+            uint256 _timestamp,
+            uint256 _repType,
+            uint256 _repScore
+        ) = abi.decode(_claimData, (string, uint256, uint256, uint256));
+
+        if (isCapxTask[_taskId] == false) revert InvalidTaskId();
+
+        CapxTaskDetails storage currCapxTask = taskDetails[_taskId];
+
+        if (currCapxTask.active == false) revert TaskNotActive();
+
+        currCapxTask.claimedParticipants += 1;
+
+        capxReputationScore.claim(
+            _taskId,
+            _timestamp,
+            _repType,
+            _repScore,
+            _msgSender()
+        );
+
+        emit CapxTaskClaimed(
+            _taskId,
+            _msgSender(),
+            _timestamp,
+            _repType,
+            _repScore
+        );
+    }
+
+    function updateTaskReward(
+        uint256 _taskNumber,
+        uint256 _reputationType,
+        uint256 _maxReputationScore
+    ) external onlyCapxCommunityAuthorized {
+        string memory _taskId = string(
+            abi.encodePacked(capxCommunityId, ":", uintToStr(_taskNumber))
+        );
+
+        if (isCapxTask[_taskId] == false) revert TaskIdDoesNotExist();
+
+        CapxTaskDetails storage currentDetails = taskDetails[_taskId];
+
+        if (currentDetails.active == true) revert QuestMustBeDisabled();
+
+        if (address(capxReputationScore) == address(0))
+            revert CapxReputationContractNotInitialised();
+
+        capxReputationScore.setQuestDetails(
+            ICapxReputationScore.QuestDTO({
+                communityQuestId: _taskId,
+                reputationType: _reputationType,
+                maxReputationScore: _maxReputationScore
+            })
+        );
+    }
+
+    function setCapxCommunityId(
+        string memory _capxCommunityId
+    ) external onlyOwner {
+        if (community[_capxCommunityId] == address(0))
+            revert InvalidCommunityId();
+        capxCommunityId = _capxCommunityId;
+    }
+
     function updateIOURewards(
         string calldata _communityId,
         uint256 _questNumber,
@@ -373,6 +496,13 @@ contract CapxCommunityQuestForger is
             _newMaxRewardAmountInWei
         );
         currentDetails.maxParticipants = _newMaxParticipants;
+    }
+
+    function updateClaimSignerAddress(
+        address _claimSignerAddress
+    ) external onlyOwner {
+        if (_claimSignerAddress == address(0)) revert ZeroAddressNotAllowed();
+        claimSignerAddress = _claimSignerAddress;
     }
 
     function updateReputationRewards(
@@ -626,6 +756,21 @@ contract CapxCommunityQuestForger is
         currCapxQuest.active = false;
     }
 
+    function disableTask(
+        uint256 _taskNumber
+    ) external onlyCapxCommunityAuthorized {
+        string memory _taskId = string(
+            abi.encodePacked(capxCommunityId, ":", uintToStr(_taskNumber))
+        );
+        if (isCapxTask[_taskId] == false) revert TaskIdDoesNotExist();
+
+        CapxTaskDetails storage currCapxTask = taskDetails[_taskId];
+
+        if (currCapxTask.active == false) revert TaskAlreadyDisabled();
+
+        currCapxTask.active = false;
+    }
+
     function enableQuest(
         string calldata _communityId,
         uint256 _questNumber
@@ -642,6 +787,18 @@ contract CapxCommunityQuestForger is
         if (currCapxQuest.active == true) revert QuestAlreadyActive();
 
         currCapxQuest.active = true;
+    }
+
+    function enableTask(uint256 _taskNumber) external onlyCapxCommunityAuthorized {
+        string memory _taskId = string(
+            abi.encodePacked(capxCommunityId, ":", uintToStr(_taskNumber))
+        );
+        if (isCapxTask[_taskId] == false) revert TaskIdDoesNotExist();
+        CapxTaskDetails storage currCapxTask = taskDetails[_taskId];
+
+        if (currCapxTask.active == true) revert TaskAlreadyEnabled();
+
+        currCapxTask.active = false;
     }
 
     function extendQuest(

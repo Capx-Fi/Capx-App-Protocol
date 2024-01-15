@@ -32,7 +32,7 @@ contract CapxCommunityQuest is
     mapping(uint256 => bool) public isCommunityQuest;
     mapping(uint256 => CapxQuestDetails) public communityQuestDetails;
     mapping(address => uint256) private lastKnownBalance;
-    mapping(uint256 => mapping(address => mapping(uint256 => bool)))
+    mapping(uint256 => mapping(address => mapping(uint256 => uint256)))
         private claimedUsers;
 
     modifier onlyForger() {
@@ -148,7 +148,7 @@ contract CapxCommunityQuest is
         if (_questNumber == 0) revert InvalidQuestId();
         if (isCommunityQuest[_questNumber] == false) revert InvalidQuestId();
         if (isCommunityActive == false) revert CommunityNotActive();
-        if (claimedUsers[_questNumber][_receiver][_timestamp] == true)
+        if (claimedUsers[_questNumber][_receiver][_timestamp] != 0)
             revert AlreadyClaimed();
 
         CapxQuestDetails storage currCapxQuest = communityQuestDetails[
@@ -166,7 +166,7 @@ contract CapxCommunityQuest is
             currCapxQuest.claimedRewards + _rewardAmountInWei
         ) revert NoRewardsToClaim();
 
-        claimedUsers[_questNumber][_receiver][_timestamp] = true;
+        claimedUsers[_questNumber][_receiver][_timestamp] = block.number;
         currCapxQuest.claimedParticipants += 1;
 
         currCapxQuest.claimedRewards += _rewardAmountInWei;
@@ -191,7 +191,7 @@ contract CapxCommunityQuest is
         uint256 _questId,
         address _addressInScope,
         uint256 _timestamp
-    ) external view returns (bool) {
+    ) external view returns (uint256) {
         return claimedUsers[_questId][_addressInScope][_timestamp];
     }
 

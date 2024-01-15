@@ -13,19 +13,19 @@ interface ICapxReputationScore {
     error InvalidMaxReputationScore();
     error AlreadyClaimed();
 
-    // 1. Social 2. Defi 3. Game
-    struct ReputationScoreTypes {
-        uint256 social;
-        uint256 defi;
-        uint256 game;
-    }
-
     struct CapxReputationMetadata {
         string username;
         uint256 mintID;
         uint256 socialScore;
         uint256 defiScore;
         uint256 gameScore;
+    }
+
+    // 1. Social 2. Defi 3. Game
+    struct ReputationScoreTypes {
+        uint256 social;
+        uint256 defi;
+        uint256 game;
     }
 
     struct ReputationClaimDetails {
@@ -36,7 +36,7 @@ interface ICapxReputationScore {
     struct CapxQuestDetails {
         uint256 reputationType;
         uint256 maxReputationScore;
-        mapping(uint256 => ReputationClaimDetails) reputationClaims;
+        mapping(uint256 => ReputationClaimDetails) reputationClaims; // Key: Reputation Type
     }
 
     struct QuestDTO {

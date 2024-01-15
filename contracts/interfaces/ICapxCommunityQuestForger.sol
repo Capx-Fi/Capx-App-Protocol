@@ -22,6 +22,7 @@ interface ICapxCommunityQuestForger {
     error QuestEnded();
     error OverMaxParticipants();
     error CapxReputationContractNotInitialised();
+    error CapxCommunityIdNotSet();
     error QuestIdDoesNotExist();
     error QuestAlreadyActive();
     error QuestAlreadyDisabled();
@@ -31,6 +32,12 @@ interface ICapxCommunityQuestForger {
     error UseRewardTypeSpecificFunctions();
     error InvalidIOURewards();
     error QuestMustBeDisabled();
+    error TaskNumberUsed();
+    error InvalidTaskId();
+    error TaskNotActive();
+    error TaskIdDoesNotExist();
+    error TaskAlreadyDisabled();
+    error TaskAlreadyEnabled();
 
     struct CreateQuest {
         address rewardToken;
@@ -46,6 +53,12 @@ interface ICapxCommunityQuestForger {
         uint256 maxReputationScore;
     }
 
+    struct CreateTask {
+        uint256 taskNumber;
+        uint256 reputationType;
+        uint256 maxReputationScore;
+    }
+
     struct CapxQuestDetails {
         string communityId;
         uint256 questNumber;
@@ -54,6 +67,12 @@ interface ICapxCommunityQuestForger {
         uint256 maxParticipants;
         uint256 claimedParticipants;
         uint256 rewardType;
+        bool active;
+    }
+
+    struct CapxTaskDetails {
+        uint256 taskNumber;
+        uint256 claimedParticipants;
         bool active;
     }
 
@@ -90,6 +109,14 @@ interface ICapxCommunityQuestForger {
     event CapxReputationScoreClaimed(
         address indexed communityAddress,
         string questId,
+        address claimReceiver,
+        uint256 timestamp,
+        uint256 reputationType,
+        uint256 reputationScore
+    );
+
+    event CapxTaskClaimed(
+        string taskId,
         address claimReceiver,
         uint256 timestamp,
         uint256 reputationType,
