@@ -1,32 +1,53 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.18;
 
 interface ICapxCommunityQuest {
-    
     error AlreadyClaimed();
-    error InvalidEndTime();
-    error InvalidStartTime();
     error NoRewardsToClaim();
     error QuestIdUsed();
     error InvalidQuestId();
-    error QuestNotStarted();
-    error QuestEnded();
     error RewardsExceedAllowedLimit();
     error TotalRewardsExceedsAvailableBalance();
-    error QuestNotActive();
-    error InvalidSigner();
-    error InvalidMessageHash();
     error ZeroAddressNotAllowed();
-    error OverMaxParticipants();
     error CommunityNotActive();
+    error NotAuthorized();
+    error CannotClaimFutureReward();
+    error NoRewardsToWithdraw();
     error ClaimedRewardsExceedTotalRewards();
 
+    struct CapxQuestDetails {
+        address rewardToken;
+        uint256 totalRewardAmountInWei;
+        uint256 maxRewardAmountInWei;
+        uint256 claimedRewards;
+        uint256 claimedParticipants;
+    }
+
+    struct QuestDTO {
+        uint256 questNumber;
+        address rewardToken;
+        uint256 totalRewardAmountInWei;
+        uint256 maxRewardAmountInWei;
+        address caller;
+    }
+
     function claim(
-        bytes32 _messageHash,
-        bytes memory _signature,
         string memory _questId,
         address _receiver,
         uint256 _timestamp,
         uint256 _rewardAmount
+    ) external returns (address);
+
+    function updateRewards(
+        address caller,
+        uint256 _questNumber,
+        uint256 totalRewardAmountInWei,
+        uint256 maxRewardAmountInWei
     ) external;
+
+    function setQuestDetails(QuestDTO memory quest) external;
+    function withdrawQuestRewards(uint256 _questNumber) external;
+    function withdrawAllQuestRewards() external;
+    function withdrawETH(address caller) external;
+    function toggleCommunityActive() external returns (bool);
 }

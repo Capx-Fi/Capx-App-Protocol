@@ -13,7 +13,8 @@ abstract contract TokenPoweredByCapx {
         string memory name_, 
         string memory symbol_,
         address owner_,
-        address capxQuestForger_,
+        address capxCommunityQuestForger_,
+        uint256 initialSupply_,
         uint256 totalCappedSupply_
     ) public virtual;
 }
@@ -21,7 +22,7 @@ abstract contract TokenPoweredByCapx {
 contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
 
     address public tokenPoweredByCapx;
-    address public capxQuestForger;
+    address public capxCommunityQuestForger;
     mapping(address => bool) public tokensPoweredByCapx;
 
     event NewTokenPoweredByCapx (
@@ -29,6 +30,7 @@ contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         address indexed owner,
         string name,
         string symbol,
+        uint256 initialSupply,
         uint256 maxTotalSupply
     );
 
@@ -76,37 +78,40 @@ contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         tokenPoweredByCapx = _tokenPoweredByCapx;
     }
 
-    function updateCapxQuestForger(
-        address _capxQuestForger
-    ) external onlyOwner checkIsAddressValid(_capxQuestForger) whenNotPaused {
-        capxQuestForger = _capxQuestForger;
+    function updatecapxCommunityQuestForger(
+        address _capxCommunityQuestForger
+    ) external onlyOwner checkIsAddressValid(_capxCommunityQuestForger) whenNotPaused {
+        capxCommunityQuestForger = _capxCommunityQuestForger;
     }
 
     function createTokenPoweredByCapx(
-        string memory name,
-        string memory symbol,
+        string memory _name,
+        string memory _symbol,
         address _owner,
-        uint256 totalCappedSupplyInWei
+        uint256 _initialSupplyInWei,
+        uint256 _totalCappedSupplyInWei
     ) external onlyOwner checkIsAddressValid(_owner) nonReentrant() whenNotPaused virtual returns(address _tokenPoweredByCapx) {
-        require(capxQuestForger != address(0),"CapxQuestForger NOT configured.");
-        require(totalCappedSupplyInWei != 0,"Token's Maximum Capped Supply cannot be ZERO");
+        require(capxCommunityQuestForger != address(0),"capxCommunityQuestForger NOT configured.");
+        require(_totalCappedSupplyInWei != 0,"Token's Maximum Capped Supply cannot be ZERO");
         _tokenPoweredByCapx = Clones.clone(tokenPoweredByCapx);
         tokensPoweredByCapx[_tokenPoweredByCapx] = true;
 
         emit NewTokenPoweredByCapx (
             _tokenPoweredByCapx,
             _owner,
-            name,
-            symbol,
-            totalCappedSupplyInWei
+            _name,
+            _symbol,
+            _initialSupplyInWei,
+            _totalCappedSupplyInWei
         );
 
         TokenPoweredByCapx(_tokenPoweredByCapx).initialize(
-            name,
-            symbol,
+            _name,
+            _symbol,
             _owner,
-            capxQuestForger,
-            totalCappedSupplyInWei
+            capxCommunityQuestForger,
+            _initialSupplyInWei,
+            _totalCappedSupplyInWei
         );
     }
 
@@ -116,5 +121,9 @@ contract CapxTokenForger is Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function addTokenPoweredByCapx(address _tokenPoweredByCapx) external onlyOwner whenNotPaused {
         tokensPoweredByCapx[_tokenPoweredByCapx] = true;
+    }
+
+    function removeTokenPoweredByCapx(address _tokenPoweredByCapx) external onlyOwner whenNotPaused {
+        tokensPoweredByCapx[_tokenPoweredByCapx] = false;
     }
 }

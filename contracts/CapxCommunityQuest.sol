@@ -1,17 +1,23 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.18;
 pragma abicoder v2;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import {ICapxCommunityQuest} from "./interfaces/ICapxCommunityQuest.sol";
 import {ICapxCommunityQuestForger} from "./interfaces/ICapxCommunityQuestForger.sol";
+import {ITokenPoweredByCapx} from "./interfaces/ITokenPoweredByCapx.sol";
+
 import {StringHelper} from "./library/StringHelper.sol";
 
-contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgradeable, ICapxCommunityQuest {
+contract CapxCommunityQuest is
+    ReentrancyGuard,
+    PausableUpgradeable,
+    OwnableUpgradeable,
+    ICapxCommunityQuest
+{
     using StringHelper for bytes;
     using StringHelper for uint256;
     using SafeERC20 for IERC20;
@@ -22,22 +28,22 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
 
     ICapxCommunityQuestForger public capxCommunityQuestForger;
 
-    mapping(string => uint256) private communityQuestToId;
+    mapping(string => uint256) public communityQuestToId;
     mapping(uint256 => bool) public isCommunityQuest;
     mapping(uint256 => CapxQuestDetails) public communityQuestDetails;
     mapping(address => uint256) private lastKnownBalance;
-    mapping(uint256 => mapping(address => mapping(uint256 => bool))) private claimedUsers;
+    mapping(uint256 => mapping(address => mapping(uint256 => uint256)))
+        private claimedUsers;
 
-    struct CapxQuestDetails {
-        uint256 startTime;
-        uint256 endTime;
-        address rewardToken;
-        uint256 totalRewardAmountInWei;
-        uint256 maxRewardAmountInWei;
-        uint256 maxParticipants;
-        uint256 claimedRewards;
-        uint256 claimedParticipants;
-        bool active;
+    modifier onlyForger() {
+        if (_msgSender() != address(capxCommunityQuestForger))
+            revert NotAuthorized();
+        _;
+    }
+
+    modifier onlyActiveCommunity() {
+        if (isCommunityActive == false) revert CommunityNotActive();
+        _;
     }
 
     function pause() external onlyOwner whenNotPaused {
@@ -48,8 +54,10 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         _unpause();
     }
 
-    function transferOwnership(address newOwner) public virtual override(OwnableUpgradeable) onlyOwner {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
+    function transferOwnership(
+        address newOwner
+    ) public virtual override(OwnableUpgradeable) onlyOwner {
+        if (newOwner == address(0)) revert ZeroAddressNotAllowed();
         capxCommunityQuestForger.updateCommunityOwner(owner(), newOwner);
         _transferOwnership(newOwner);
     }
@@ -73,11 +81,6 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         return string(buffer);
     }
 
-    function recoverSigner(bytes32 messagehash, bytes memory signature) public pure returns (address) {
-        bytes32 messageDigest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messagehash));
-        return ECDSAUpgradeable.recover(messageDigest, signature);
-    }
-
     function initialize(
         address _owner,
         string memory _communityId
@@ -91,163 +94,243 @@ contract CapxCommunityQuest is ReentrancyGuard, PausableUpgradeable, OwnableUpgr
         _transferOwnership(_owner);
     }
 
-    function createQuest(
-        uint256 _startTime,
-        uint256 _endTime,
-        address _rewardToken,
-        uint256 _questId,
-        uint256 _maxParticipants,
-        uint256 _totalRewardAmountInWei,
-        uint256 _maxRewardAmountInWei
-    ) external virtual nonReentrant whenNotPaused {
-        require(_msgSender() == address(capxCommunityQuestForger),"NOT Authorized to call.");
-        if (_startTime <= block.timestamp) revert InvalidStartTime();
-        if (_endTime <= block.timestamp || _endTime <= _startTime) revert InvalidEndTime();
-        if(IERC20(_rewardToken).balanceOf(address(this)) - lastKnownBalance[_rewardToken] < _totalRewardAmountInWei) revert TotalRewardsExceedsAvailableBalance();
-        
-        CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
-        string memory _communityQuestId = string(abi.encodePacked(communityId,"_",uintToStr(_questId)));
-        if(currCapxQuest.rewardToken != address(0)) revert QuestIdUsed();
-        
-        // Fill up the Quest Details.
-        currCapxQuest.active = true;
-        currCapxQuest.startTime = _startTime;
-        currCapxQuest.endTime = _endTime;
-        currCapxQuest.maxParticipants = _maxParticipants;
-        currCapxQuest.maxRewardAmountInWei = _maxRewardAmountInWei;
-        currCapxQuest.totalRewardAmountInWei = _totalRewardAmountInWei;
-        currCapxQuest.rewardToken = _rewardToken;
+    function setQuestDetails(
+        QuestDTO memory quest
+    ) external nonReentrant whenNotPaused onlyForger {
+        // Transfer tokens.
+        IERC20(quest.rewardToken).safeTransferFrom(
+            quest.caller,
+            address(this),
+            quest.totalRewardAmountInWei
+        );
 
-        lastKnownBalance[_rewardToken] += _totalRewardAmountInWei;
-        isCommunityQuest[_questId] = true;
+        if (
+            IERC20(quest.rewardToken).balanceOf(address(this)) -
+                lastKnownBalance[quest.rewardToken] <
+            quest.totalRewardAmountInWei
+        ) revert TotalRewardsExceedsAvailableBalance();
+
+        string memory _communityQuestId = string(
+            abi.encodePacked(communityId, "_", uintToStr(quest.questNumber))
+        );
+
+        communityQuestDetails[quest.questNumber] = CapxQuestDetails({
+            rewardToken: quest.rewardToken,
+            totalRewardAmountInWei: quest.totalRewardAmountInWei,
+            maxRewardAmountInWei: quest.maxRewardAmountInWei,
+            claimedRewards: 0,
+            claimedParticipants: 0
+        });
+
+        lastKnownBalance[quest.rewardToken] += quest.totalRewardAmountInWei;
+        isCommunityQuest[quest.questNumber] = true;
         communityQuestCount += 1;
-        communityQuestToId[_communityQuestId] = _questId;
+        communityQuestToId[_communityQuestId] = quest.questNumber;
     }
 
     function claim(
-        bytes32 _messageHash,
-        bytes memory _signature,
         string memory _communityQuestId,
         address _receiver,
         uint256 _timestamp,
         uint256 _rewardAmountInWei
-    ) external virtual override nonReentrant whenNotPaused {
-        uint256 _questId = communityQuestToId[_communityQuestId];
-        require(_msgSender() == address(capxCommunityQuestForger),"NOT Authorized to call.");
-        require(_timestamp < block.timestamp, "Cannot Claim Future Rewards");
-        require(_questId != 0, "Invalid Community QuestId");
-        if(isCommunityQuest[_questId] == false) revert InvalidQuestId();
-        if(isCommunityActive == false) revert CommunityNotActive();
-        if(claimedUsers[_questId][_receiver][_timestamp] == true) revert AlreadyClaimed();
-        if(keccak256(abi.encodePacked(_receiver,_communityQuestId,_timestamp,_rewardAmountInWei)) != _messageHash) revert InvalidMessageHash();
-        if (recoverSigner(_messageHash, _signature) != capxCommunityQuestForger.claimSignerAddress()) revert InvalidSigner();
+    )
+        external
+        virtual
+        override
+        nonReentrant
+        whenNotPaused
+        onlyForger
+        onlyActiveCommunity
+        returns (address)
+    {
+        uint256 _questNumber = communityQuestToId[_communityQuestId];
+        if (_timestamp > block.timestamp) revert CannotClaimFutureReward();
+        if (_questNumber == 0) revert InvalidQuestId();
+        if (isCommunityQuest[_questNumber] == false) revert InvalidQuestId();
+        if (isCommunityActive == false) revert CommunityNotActive();
+        if (claimedUsers[_questNumber][_receiver][_timestamp] != 0)
+            revert AlreadyClaimed();
 
-        CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
-        if(currCapxQuest.active == false) revert QuestNotActive();
-        if(IERC20(currCapxQuest.rewardToken).balanceOf(address(this)) < _rewardAmountInWei) revert NoRewardsToClaim();
-        if (block.timestamp < currCapxQuest.startTime) revert QuestNotStarted();
-        if (_timestamp > currCapxQuest.endTime) revert QuestEnded();
-        if(currCapxQuest.maxRewardAmountInWei < _rewardAmountInWei) revert RewardsExceedAllowedLimit();
-        if(currCapxQuest.totalRewardAmountInWei < currCapxQuest.claimedRewards + _rewardAmountInWei) revert NoRewardsToClaim();
-        if(currCapxQuest.maxParticipants < currCapxQuest.claimedParticipants + 1) revert OverMaxParticipants();
+        CapxQuestDetails storage currCapxQuest = communityQuestDetails[
+            _questNumber
+        ];
+        if (
+            IERC20(currCapxQuest.rewardToken).balanceOf(address(this)) <
+            _rewardAmountInWei
+        ) revert NoRewardsToClaim();
 
-        claimedUsers[_questId][_receiver][_timestamp] = true;
-        currCapxQuest.claimedParticipants+=1;
-        currCapxQuest.claimedRewards+=_rewardAmountInWei;
-        lastKnownBalance[currCapxQuest.rewardToken]-=_rewardAmountInWei;
+        if (currCapxQuest.maxRewardAmountInWei < _rewardAmountInWei)
+            revert RewardsExceedAllowedLimit();
+        if (
+            currCapxQuest.totalRewardAmountInWei <
+            currCapxQuest.claimedRewards + _rewardAmountInWei
+        ) revert NoRewardsToClaim();
+
+        claimedUsers[_questNumber][_receiver][_timestamp] = block.number;
+        currCapxQuest.claimedParticipants += 1;
+
+        currCapxQuest.claimedRewards += _rewardAmountInWei;
+        lastKnownBalance[currCapxQuest.rewardToken] -= _rewardAmountInWei;
 
         // Transfer Tokens.
-        require(IERC20(currCapxQuest.rewardToken).approve(_receiver,_rewardAmountInWei));
-        IERC20(currCapxQuest.rewardToken).safeTransfer(_receiver,_rewardAmountInWei);
-
-        // Emit Event.
-        capxCommunityQuestForger.emitClaim(
-            address(this), 
-            _communityQuestId, 
-            _receiver, 
-            _timestamp, 
-            currCapxQuest.rewardToken, 
+        require(
+            IERC20(currCapxQuest.rewardToken).approve(
+                _receiver,
+                _rewardAmountInWei
+            )
+        );
+        IERC20(currCapxQuest.rewardToken).safeTransfer(
+            _receiver,
             _rewardAmountInWei
         );
+
+        return currCapxQuest.rewardToken;
     }
 
-    function isClaimed(uint256 _questId, address _addressInScope, uint256 _timestamp) external view returns (bool) {
+    function isClaimed(
+        uint256 _questId,
+        address _addressInScope,
+        uint256 _timestamp
+    ) external view returns (uint256) {
         return claimedUsers[_questId][_addressInScope][_timestamp];
     }
 
     function getRewardToken(uint256 _questId) external view returns (address) {
-        CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
+        CapxQuestDetails storage currCapxQuest = communityQuestDetails[
+            _questId
+        ];
         return currCapxQuest.rewardToken;
     }
 
-    function disableQuest(uint256 _questId) external nonReentrant onlyOwner {
-        if(isCommunityQuest[_questId] == false) revert InvalidQuestId();
-        CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
-        uint256 pendingRewards = currCapxQuest.totalRewardAmountInWei - currCapxQuest.claimedRewards;
-        require(IERC20(currCapxQuest.rewardToken).balanceOf(address(this)) >= pendingRewards, "No Rewards to withdraw");
+    function withdrawQuestRewards(
+        uint256 _questNumber
+    ) external nonReentrant onlyForger {
+        CapxQuestDetails storage currCapxQuest = communityQuestDetails[
+            _questNumber
+        ];
+        uint256 pendingRewards = currCapxQuest.totalRewardAmountInWei -
+            currCapxQuest.claimedRewards;
+        if (
+            IERC20(currCapxQuest.rewardToken).balanceOf(address(this)) <
+            pendingRewards
+        ) revert NoRewardsToWithdraw();
 
-        currCapxQuest.active = false;
-        lastKnownBalance[currCapxQuest.rewardToken]-=pendingRewards;
+        if (pendingRewards > 0) {
+            lastKnownBalance[currCapxQuest.rewardToken] -= pendingRewards;
 
-        require(IERC20(currCapxQuest.rewardToken).approve(_msgSender(),pendingRewards));
-        IERC20(currCapxQuest.rewardToken).safeTransfer(_msgSender(),pendingRewards);
+            require(
+                IERC20(currCapxQuest.rewardToken).approve(
+                    owner(),
+                    pendingRewards
+                )
+            );
+            IERC20(currCapxQuest.rewardToken).safeTransfer(
+                owner(),
+                pendingRewards
+            );
+        }
+        currCapxQuest.maxRewardAmountInWei = 0;
+        currCapxQuest.totalRewardAmountInWei = 0;
     }
 
-    function enableQuest(uint256 _questId) external nonReentrant onlyOwner {
-        if(isCommunityQuest[_questId] == false) revert InvalidQuestId();
-        CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
-        uint256 pendingRewards = currCapxQuest.totalRewardAmountInWei - currCapxQuest.claimedRewards;
-        IERC20(currCapxQuest.rewardToken).safeTransferFrom(_msgSender(),address(this),pendingRewards);
+    function updateRewards(
+        address _caller,
+        uint256 _questNumber,
+        uint256 _totalRewardAmountInWei,
+        uint256 _maxRewardAmountInWei
+    ) external nonReentrant onlyForger {
+        if (isCommunityQuest[_questNumber] == false) revert InvalidQuestId();
+        CapxQuestDetails storage currCapxQuest = communityQuestDetails[
+            _questNumber
+        ];
 
-        currCapxQuest.active = true;
-        lastKnownBalance[currCapxQuest.rewardToken]+=pendingRewards;
-    }
+        if (currCapxQuest.totalRewardAmountInWei > _totalRewardAmountInWei) {
+            // Transfer from contract to owner.
+            uint256 _excessAmount = currCapxQuest.totalRewardAmountInWei -
+                _totalRewardAmountInWei;
+            if (_excessAmount < currCapxQuest.claimedRewards)
+                revert ClaimedRewardsExceedTotalRewards();
 
-    function updateTotalRewards(uint256 _questId, uint256 _rewardAmount, uint256 _maxParticipants) external nonReentrant onlyOwner {
-        if(isCommunityQuest[_questId] == false) revert InvalidQuestId();
-        CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
-        if(currCapxQuest.active == false) revert QuestNotActive();
-
-        if (currCapxQuest.maxParticipants < _maxParticipants) {
-            // Max Participants Increased. Transfer tokens into the contract.
-            IERC20(currCapxQuest.rewardToken).safeTransferFrom(_msgSender(),address(this),_rewardAmount);
-            lastKnownBalance[currCapxQuest.rewardToken] += _rewardAmount;
-            currCapxQuest.totalRewardAmountInWei += _rewardAmount;
-            
+            lastKnownBalance[currCapxQuest.rewardToken] -= _excessAmount;
+            IERC20(currCapxQuest.rewardToken).safeTransfer(
+                owner(),
+                _excessAmount
+            );
         } else {
-            // Max Participants Decreased. Transfer tokens from the contract.
-            uint256 updatedRewardAmtInWei = currCapxQuest.totalRewardAmountInWei - _rewardAmount;
-            if (updatedRewardAmtInWei < currCapxQuest.claimedRewards) revert ClaimedRewardsExceedTotalRewards();
-            currCapxQuest.totalRewardAmountInWei = updatedRewardAmtInWei;
-            lastKnownBalance[currCapxQuest.rewardToken] -= _rewardAmount;
+            // Transfer to contract from owner.
+            uint256 _differentAmount = _totalRewardAmountInWei -
+                currCapxQuest.totalRewardAmountInWei;
 
-            IERC20(currCapxQuest.rewardToken).safeTransfer(_msgSender(),_rewardAmount);
+            if (_differentAmount > 0) {
+                lastKnownBalance[currCapxQuest.rewardToken] += _differentAmount;
+                IERC20(currCapxQuest.rewardToken).safeTransferFrom(
+                    _caller,
+                    address(this),
+                    _differentAmount
+                );
+            }
         }
-        currCapxQuest.maxParticipants = _maxParticipants;
+        currCapxQuest.totalRewardAmountInWei = _totalRewardAmountInWei;
+        currCapxQuest.maxRewardAmountInWei = _maxRewardAmountInWei;
     }
 
-    function extendQuest(
-        uint256 _questId,
-        uint256 _endTime
-    ) external nonReentrant onlyOwner {
-        if (_endTime <= block.timestamp) revert InvalidEndTime();
-        CapxQuestDetails storage currCapxQuest = communityQuestDetails[_questId];
-        currCapxQuest.endTime = _endTime;
-    }
-
-    function withdrawTokens(address[] memory tokens) external nonReentrant onlyOwner {
+    function withdrawAllQuestRewards() external nonReentrant onlyForger {
         isCommunityActive = false;
-        for(uint256 i = 0; i < tokens.length; i++) {
-            IERC20(tokens[i]).safeTransfer(_msgSender(),IERC20(tokens[i]).balanceOf(address(this)));
+        for (
+            uint256 _questNumber = 1;
+            _questNumber <= communityQuestCount;
+            _questNumber++
+        ) {
+            CapxQuestDetails storage currCapxQuest = communityQuestDetails[
+                _questNumber
+            ];
+            if (currCapxQuest.totalRewardAmountInWei != 0) {
+                uint256 pendingRewards = currCapxQuest.totalRewardAmountInWei -
+                    currCapxQuest.claimedRewards;
+                if (
+                    IERC20(currCapxQuest.rewardToken).balanceOf(address(this)) <
+                    pendingRewards
+                ) revert NoRewardsToWithdraw();
+
+                if (pendingRewards > 0) {
+                    lastKnownBalance[
+                        currCapxQuest.rewardToken
+                    ] -= pendingRewards;
+
+                    require(
+                        IERC20(currCapxQuest.rewardToken).approve(
+                            owner(),
+                            pendingRewards
+                        )
+                    );
+                    IERC20(currCapxQuest.rewardToken).safeTransfer(
+                        owner(),
+                        pendingRewards
+                    );
+                }
+            }
+
+            currCapxQuest.maxRewardAmountInWei = 0;
+            currCapxQuest.totalRewardAmountInWei = 0;
         }
     }
 
-    function toggleCommunity() external onlyOwner {
-        isCommunityActive = !isCommunityActive;
+    function withdrawETH(address _caller) public onlyForger nonReentrant {
+        (bool sendSuccess, bytes memory sendResponse) = payable(_caller).call{
+            value: address(this).balance
+        }("");
+        require(
+            sendSuccess,
+            string(
+                bytes("Native Transfer Failed: ").concat(
+                    bytes(sendResponse.getRevertMsg())
+                )
+            )
+        );
     }
 
-    function withdrawETH() public onlyOwner {
-        (bool sendSuccess, bytes memory sendResponse) = payable(_msgSender()).call{value: address(this).balance}("");
-        require(sendSuccess,string(bytes("Native Transfer Failed: ").concat(bytes(sendResponse.getRevertMsg()))));
+    function toggleCommunityActive() external onlyForger returns (bool) {
+        isCommunityActive = !isCommunityActive;
+        return isCommunityActive;
     }
 }
